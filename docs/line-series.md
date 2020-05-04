@@ -2,7 +2,7 @@
 
 A line chart is a type of chart that displays information as series of the data points connected by straight line segments.
 
-Line series has a crosshair marker - a round mark which is moving along the series' line while the cursor is moving along the timescale.
+Line series has a crosshair marker - a round mark which is moving along the series' line while the cursor is moving along the time scale.
 
 ![Line chart example](./assets/line-series.png "Line chart example")
 
@@ -49,7 +49,7 @@ A line series interface can be customized using the following options:
 |`color`|`string`|`#2196f3`|Line color|
 |`lineStyle`|[LineStyle](./constants.md#linestyle)|`LineStyle.Solid`|Line style|
 |`lineWidth`|`number`|`3`|Line width (in pixels)|
-|`drawCrosshairMarker`|`boolean`|`true`|If `true`, the crosshair marker is shown on a chart|
+|`crosshairMarkerVisible`|`boolean`|`true`|If `true`, the crosshair marker is shown on a chart|
 |`crosshairMarkerRadius`|`number`|`4`|Crosshair marker radius (in pixels)|
 |`lineType`|[LineType](./constants.md#linetype)|`LineType.Simple`|Line type|
 
@@ -62,7 +62,7 @@ A line series interface can be customized using the following options:
         color: '#f48fb1',
         lineStyle: 0,
         lineWidth: 1,
-        drawCrosshairMarker: true,
+        crosshairMarkerVisible: true,
         crosshairMarkerRadius: 6,
         lineType: 1,
     });

@@ -1,7 +1,7 @@
 import { ensureNotNull } from '../../helpers/assertions';
 
 import { BarPrice } from '../../model/bar';
-import { ChartModel, ChartOptions } from '../../model/chart-model';
+import { ChartModel, ChartOptionsInternal } from '../../model/chart-model';
 import { Coordinate } from '../../model/coordinate';
 import { Crosshair } from '../../model/crosshair';
 import { Series } from '../../model/series';
@@ -12,7 +12,7 @@ import { MarksRendererData, PaneRendererMarks } from '../../renderers/marks-rend
 
 import { IUpdatablePaneView, UpdateType } from './iupdatable-pane-view';
 
-function createEmptyMarkerData(chartOptions: ChartOptions): MarksRendererData {
+function createEmptyMarkerData(chartOptions: ChartOptionsInternal): MarksRendererData {
 	return {
 		items: [{
 			x: 0 as Coordinate,
@@ -78,17 +78,18 @@ export class CrosshairMarksPaneView implements IUpdatablePaneView {
 
 			if (seriesData === null) {
 				data.visibleRange = null;
-			} else {
-				const firstValue = ensureNotNull(s.firstValue());
-				data.lineColor = s.barColorer().barStyle(timePointIndex).barColor;
-				data.backColor = this._chartModel.options().layout.backgroundColor;
-				data.radius = seriesData.radius;
-				data.items[0].price = seriesData.price;
-				data.items[0].y = s.priceScale().priceToCoordinate(seriesData.price, firstValue);
-				data.items[0].time = timePointIndex;
-				data.items[0].x = timeScale.indexToCoordinate(timePointIndex);
-				data.visibleRange = rangeForSinglePoint;
+				return;
 			}
+
+			const firstValue = ensureNotNull(s.firstValue());
+			data.lineColor = s.barColorer().barStyle(timePointIndex).barColor;
+			data.backColor = this._chartModel.options().layout.backgroundColor;
+			data.radius = seriesData.radius;
+			data.items[0].price = seriesData.price;
+			data.items[0].y = s.priceScale().priceToCoordinate(seriesData.price, firstValue.value);
+			data.items[0].time = timePointIndex;
+			data.items[0].x = timeScale.indexToCoordinate(timePointIndex);
+			data.visibleRange = rangeForSinglePoint;
 		});
 	}
 }

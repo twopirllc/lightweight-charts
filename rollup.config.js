@@ -16,13 +16,14 @@ function getCurrentVersion() {
 const currentVersion = getCurrentVersion();
 
 function getConfig(inputFile, type, isProd) {
-	const suffix = type === 'module' ? 'esm' : 'standalone';
+	const isModular = type === 'module';
+	const suffix = isModular ? 'esm' : 'standalone';
 	const mode = isProd ? 'production' : 'development';
 
 	const config = {
 		input: inputFile,
 		output: {
-			format: type === 'module' ? 'esm' : 'iife',
+			format: isModular ? 'esm' : 'iife',
 			file: `./dist/lightweight-charts.${suffix}.${mode}.js`,
 			banner: `
 /*!
@@ -46,8 +47,15 @@ function getConfig(inputFile, type, isProd) {
 					comments: /@license/,
 					inline_script: true,
 				},
+				mangle: {
+					module: (type === 'module'),
+					properties: {
+						regex: /^_private_/,
+					},
+				},
 			}),
 		],
+		external: id => isModular && /^fancy-canvas(\/.+)?$/.test(id),
 	};
 
 	return config;
@@ -61,7 +69,7 @@ const configs = [
 if (process.env.NODE_ENV === 'production') {
 	configs.push(
 		getConfig('./lib/src/index.js', 'module', true),
-		getConfig('./lib/src/standalone.js', 'standalone', true),
+		getConfig('./lib/src/standalone.js', 'standalone', true)
 	);
 }
 

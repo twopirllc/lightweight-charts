@@ -1,7 +1,7 @@
 function generateData() {
 	var res = [];
 	var time = new Date(Date.UTC(2018, 0, 1, 0, 0, 0, 0));
-	for (var i = 0; i < 5; ++i) {
+	for (var i = 0; i < 1000; ++i) {
 		res.push({
 			time: time.getTime() / 1000,
 			value: i,
@@ -22,6 +22,6 @@ function runTestCase(container) {
 
 	chart.timeScale().setVisibleRange({
 		from: (new Date(Date.UTC(2018, 0, 1, 0, 0, 0, 0))).getTime() / 1000,
-		to: (new Date(Date.UTC(2018, 0, 5, 0, 0, 0, 0))).getTime() / 1000,
+		to: (new Date(Date.UTC(2018, 1, 1, 0, 0, 0, 0))).getTime() / 1000,
 	});
 }

@@ -5,8 +5,6 @@ import {
 
 export interface IPriceAxisView {
 	coordinate(): number;
-	floatCoordinate(): number;
-	generateTextColor(color: string): string;
 	getFixedCoordinate(): number;
 	height(rendererOptions: PriceAxisViewRendererOptions, useSecondLine?: boolean): number;
 	isVisible(): boolean;

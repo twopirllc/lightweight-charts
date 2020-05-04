@@ -1,9 +1,5 @@
-import {
-	parseRgb,
-	rgbToBlackWhiteString,
-} from '../../helpers/color';
+import { generateTextColor } from '../../helpers/color';
 
-import { LineStyle } from '../../renderers/draw-line';
 import {
 	IPriceAxisViewRenderer,
 	IPriceAxisViewRendererConstructor,
@@ -26,16 +22,14 @@ export abstract class PriceAxisView implements IPriceAxisView {
 		text: '',
 		visible: false,
 		tickVisible: true,
-		borderVisible: true,
-		lineStyle: LineStyle.Dotted,
+		borderColor: '',
 	};
 
 	private readonly _paneRendererData: PriceAxisViewRendererData = {
 		text: '',
 		visible: false,
 		tickVisible: false,
-		borderVisible: false,
-		lineStyle: LineStyle.Dotted,
+		borderColor: '',
 	};
 
 	private readonly _axisRenderer: IPriceAxisViewRenderer;
@@ -56,22 +50,12 @@ export abstract class PriceAxisView implements IPriceAxisView {
 	}
 
 	public color(): string {
-		return this.generateTextColor(this.background());
-	}
-
-	public generateTextColor(color: string): string {
-		const backColorBW = rgbToBlackWhiteString(parseRgb(color), 160);
-		return backColorBW === 'black' ? 'white' : 'black';
+		return generateTextColor(this.background());
 	}
 
 	public coordinate(): number {
 		this._updateRendererDataIfNeeded();
 		return this._commonRendererData.coordinate;
-	}
-
-	public floatCoordinate(): number {
-		this._updateRendererDataIfNeeded();
-		return this._commonRendererData.floatCoordinate || this._commonRendererData.coordinate;
 	}
 
 	public update(): void {

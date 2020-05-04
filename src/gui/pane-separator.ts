@@ -1,6 +1,7 @@
 import { IDestroyable } from '../helpers/idestroyable';
 import { clamp } from '../helpers/mathex';
 
+import { createPreconfiguredCanvas, getContext2D, Size } from './canvas-utils';
 import { ChartWidget } from './chart-widget';
 import { MouseEventHandler, MouseEventHandlers, TouchMouseEvent } from './mouse-event-handler';
 import { PaneWidget } from './pane-widget';
@@ -56,7 +57,14 @@ export class PaneSeparator implements IDestroyable {
 				pressedMouseMoveEvent: this._pressedMouseMoveEvent.bind(this),
 				mouseUpEvent: this._mouseUpEvent.bind(this),
 			};
-			this._mouseEventHandler = new MouseEventHandler(this._handle, handlers, true, false);
+			this._mouseEventHandler = new MouseEventHandler(
+				this._handle,
+				handlers,
+				{
+					treatVertTouchDragAsPageScroll: false,
+					treatHorzTouchDragAsPageScroll: true,
+				}
+			);
 		}
 	}
 
@@ -68,6 +76,19 @@ export class PaneSeparator implements IDestroyable {
 
 	public getElement(): HTMLElement {
 		return this._rowElement;
+	}
+
+	public getSize(): Readonly<Size> {
+		return new Size(this._paneA.getSize().w, SEPARATOR_HEIGHT);
+	}
+
+	public getImage(): HTMLCanvasElement {
+		const size = this.getSize();
+		const res = createPreconfiguredCanvas(document, size);
+		const ctx = getContext2D(res);
+		ctx.fillStyle = this._chartWidget.options().timeScale.borderColor;
+		ctx.fillRect(0, 0, size.w, size.h);
+		return res;
 	}
 
 	public update(): void {
@@ -89,7 +110,6 @@ export class PaneSeparator implements IDestroyable {
 	}
 
 	private _pressedMouseMoveEvent(event: TouchMouseEvent): void {
-		event.preventDefault();
 		this._deltaY = (event.pageY - this._startY);
 		const upperHeight = this._paneA.getSize().h;
 		const newUpperPaneHeight = clamp(upperHeight + this._deltaY, this._minPaneHeight, this._maxPaneHeight);

@@ -1,3 +1,5 @@
+import { generateTextColor } from '../../helpers/color';
+
 import { ChartModel } from '../../model/chart-model';
 import { LastValueDataResultWithData, Series } from '../../model/series';
 import { PriceAxisLastValueMode } from '../../model/series-options';
@@ -58,9 +60,10 @@ export class SeriesPriceAxisView extends PriceAxisView {
 		}
 
 		commonRendererData.background = this._source.priceLineColor(lastValueData.color);
-		commonRendererData.color = this.generateTextColor(commonRendererData.background);
+		commonRendererData.color = generateTextColor(commonRendererData.background);
 		commonRendererData.coordinate = lastValueData.coordinate;
-		commonRendererData.floatCoordinate = lastValueData.floatCoordinate;
+		paneRendererData.borderColor = this._source.model().options().layout.backgroundColor;
+		axisRendererData.borderColor = commonRendererData.background;
 	}
 
 	protected _paneText(

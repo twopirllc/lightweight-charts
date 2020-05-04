@@ -1,17 +1,19 @@
 import { ensureDefined, ensureNotNull } from '../helpers/assertions';
+import { drawScaled } from '../helpers/canvas-helpers';
 import { Delegate } from '../helpers/delegate';
 import { IDestroyable } from '../helpers/idestroyable';
 import { ISubscription } from '../helpers/isubscription';
 import { DeepPartial } from '../helpers/strict-type-checks';
 
-import { ChartModel, ChartOptions } from '../model/chart-model';
+import { BarPrice, BarPrices } from '../model/bar';
+import { ChartModel, ChartOptionsInternal } from '../model/chart-model';
 import { Coordinate } from '../model/coordinate';
 import { InvalidateMask, InvalidationLevel } from '../model/invalidate-mask';
 import { Point } from '../model/point';
 import { Series } from '../model/series';
 import { TimePoint, TimePointIndex } from '../model/time-data';
 
-import { Size } from './canvas-utils';
+import { createPreconfiguredCanvas, getCanvasDevicePixelRatio, getContext2D, Size } from './canvas-utils';
 import { PaneSeparator, SEPARATOR_HEIGHT } from './pane-separator';
 import { PaneWidget } from './pane-widget';
 import { TimeAxisWidget } from './time-axis-widget';
@@ -19,11 +21,15 @@ import { TimeAxisWidget } from './time-axis-widget';
 export interface MouseEventParamsImpl {
 	time?: TimePoint;
 	point?: Point;
-	seriesPrices: Map<Series, number>;
+	seriesPrices: Map<Series, BarPrice | BarPrices>;
+	hoveredSeries?: Series;
+	hoveredObject?: string;
 }
 
+export type MouseEventParamsImplSupplier = () => MouseEventParamsImpl;
+
 export class ChartWidget implements IDestroyable {
-	private readonly _options: ChartOptions;
+	private readonly _options: ChartOptionsInternal;
 	private _paneWidgets: PaneWidget[] = [];
 	private _paneSeparators: PaneSeparator[] = [];
 	private readonly _model: ChartModel;
@@ -37,14 +43,15 @@ export class ChartWidget implements IDestroyable {
 	private _timeAxisWidget: TimeAxisWidget;
 	private _invalidateMask: InvalidateMask | null = null;
 	private _drawPlanned: boolean = false;
-	private _clicked: Delegate<MouseEventParamsImpl> = new Delegate();
-	private _crosshairMoved: Delegate<MouseEventParamsImpl> = new Delegate();
+	private _clicked: Delegate<MouseEventParamsImplSupplier> = new Delegate();
+	private _crosshairMoved: Delegate<MouseEventParamsImplSupplier> = new Delegate();
 	private _onWheelBound: (event: WheelEvent) => void;
 
-	public constructor(container: HTMLElement, options: ChartOptions) {
+	public constructor(container: HTMLElement, options: ChartOptionsInternal) {
 		this._options = options;
 
 		this._element = document.createElement('div');
+		this._element.classList.add('tv-lightweight-charts');
 		this._element.style.overflow = 'hidden';
 		this._element.style.width = '100%';
 		this._element.style.height = '100%';
@@ -54,7 +61,7 @@ export class ChartWidget implements IDestroyable {
 		this._element.appendChild(this._tableElement);
 
 		this._onWheelBound = this._onMousewheel.bind(this);
-		this._element.addEventListener('wheel', this._onWheelBound);
+		this._element.addEventListener('wheel', this._onWheelBound, { passive: false });
 
 		this._model = new ChartModel(
 			this._invalidateHandler.bind(this),
@@ -68,10 +75,21 @@ export class ChartWidget implements IDestroyable {
 		let width = this._options.width;
 		let height = this._options.height;
 
-		if (width === 0 && height === 0) {
+		if (width === 0 || height === 0) {
 			const containerRect = container.getBoundingClientRect();
-			width = containerRect.width;
-			height = containerRect.height;
+			// TODO: Fix it better
+			// on Hi-DPI CSS size * Device Pixel Ratio should be integer to avoid smoothing
+			// For chart widget we decreases because we must be inside container.
+			// For time axis this is not important, since it just affects space for pane widgets
+			if (width === 0) {
+				width = Math.floor(containerRect.width);
+				width -= width % 2;
+			}
+
+			if (height === 0) {
+				height = Math.floor(containerRect.height);
+				height -= height % 2;
+			}
 		}
 
 		width = Math.max(70, width);
@@ -79,7 +97,7 @@ export class ChartWidget implements IDestroyable {
 
 		// BEWARE: resize must be called BEFORE _syncGuiWithModel (in constructor only)
 		// or after but with adjustSize to properly update time scale
-		this.resize(height, width);
+		this.resize(width, height);
 
 		this._syncGuiWithModel();
 
@@ -98,7 +116,7 @@ export class ChartWidget implements IDestroyable {
 		return this._model;
 	}
 
-	public options(): Readonly<ChartOptions> {
+	public options(): Readonly<ChartOptionsInternal> {
 		return this._options;
 	}
 
@@ -140,7 +158,7 @@ export class ChartWidget implements IDestroyable {
 		delete this._element;
 	}
 
-	public resize(height: number, width: number, forceRepaint: boolean = false): void {
+	public resize(width: number, height: number, forceRepaint: boolean = false): void {
 		if (this._height === height && this._width === width) {
 			return;
 		}
@@ -181,27 +199,100 @@ export class ChartWidget implements IDestroyable {
 		this._model.fullUpdate();
 	}
 
-	public applyOptions(options: DeepPartial<ChartOptions>): void {
+	public applyOptions(options: DeepPartial<ChartOptionsInternal>): void {
 		this._model.applyOptions(options);
-		this._paneWidgets[0].updateBranding();
 		this._updateTimeAxisVisibility();
 
 		const width = options.width || this._width;
 		const height = options.height || this._height;
 
-		this.resize(height, width);
+		this.resize(width, height);
 	}
 
-	public clicked(): ISubscription<MouseEventParamsImpl> {
+	public clicked(): ISubscription<MouseEventParamsImplSupplier> {
 		return this._clicked;
 	}
 
-	public crosshairMoved(): ISubscription<MouseEventParamsImpl> {
+	public crosshairMoved(): ISubscription<MouseEventParamsImplSupplier> {
 		return this._crosshairMoved;
 	}
 
-	public disableBranding(): void {
-		this._paneWidgets[0].disableBranding();
+	public takeScreenshot(): HTMLCanvasElement {
+		if (this._invalidateMask !== null) {
+			this._drawImpl(this._invalidateMask);
+			this._invalidateMask = null;
+		}
+		// calculate target size
+		const firstPane = this._paneWidgets[0];
+		const targetCanvas = createPreconfiguredCanvas(document, new Size(this._width, this._height));
+		const ctx = getContext2D(targetCanvas);
+		const pixelRatio = getCanvasDevicePixelRatio(targetCanvas);
+		drawScaled(ctx, pixelRatio, () => {
+			let targetX = 0;
+			let targetY = 0;
+
+			const drawPriceAxises = () => {
+				for (let paneIndex = 0; paneIndex < this._paneWidgets.length; paneIndex++) {
+					const paneWidget = this._paneWidgets[paneIndex];
+					const paneWidgetHeight = paneWidget.getSize().h;
+					const priceAxisWidget = ensureNotNull(paneWidget.priceAxisWidget());
+					const image = priceAxisWidget.getImage();
+					ctx.drawImage(image, targetX, targetY, priceAxisWidget.getWidth(), paneWidgetHeight);
+					targetY += paneWidgetHeight;
+					if (paneIndex < this._paneWidgets.length - 1) {
+						targetY += SEPARATOR_HEIGHT;
+					}
+				}
+			};
+			// draw left price scale if exists
+			if (this._options.priceScale.position === 'left') {
+				drawPriceAxises();
+				targetX = ensureNotNull(firstPane.priceAxisWidget()).getWidth();
+			}
+			targetY = 0;
+			for (let paneIndex = 0; paneIndex < this._paneWidgets.length; paneIndex++) {
+				const paneWidget = this._paneWidgets[paneIndex];
+				const paneWidgetSize = paneWidget.getSize();
+				const image = paneWidget.getImage();
+				ctx.drawImage(image, targetX, targetY, paneWidgetSize.w, paneWidgetSize.h);
+				targetY += paneWidgetSize.h;
+				if (paneIndex < this._paneWidgets.length - 1) {
+					const separator = this._paneSeparators[paneIndex];
+					const separatorSize = separator.getSize();
+					const separatorImage = separator.getImage();
+					ctx.drawImage(separatorImage, targetX, targetY, separatorSize.w, separatorSize.h);
+					targetY += separatorSize.h;
+				}
+			}
+			targetX += firstPane.getSize().w;
+			if (this._options.priceScale.position === 'right') {
+				targetY = 0;
+				drawPriceAxises();
+			}
+			const drawStub = () => {
+				const stub = ensureNotNull(this._timeAxisWidget.stub());
+				const size = stub.getSize();
+				const image = stub.getImage();
+				ctx.drawImage(image, targetX, targetY, size.w, size.h);
+			};
+			// draw time scale
+			if (this._options.timeScale.visible) {
+				targetX = 0;
+				if (this._options.priceScale.position === 'left') {
+					drawStub();
+					targetX = ensureNotNull(firstPane.priceAxisWidget()).getWidth();
+				}
+				const size = this._timeAxisWidget.getSize();
+				const image = this._timeAxisWidget.getImage();
+				ctx.drawImage(image, targetX, targetY, size.w, size.h);
+				if (this._options.priceScale.position === 'right') {
+					targetX = firstPane.getSize().w;
+					drawStub();
+					ctx.restore();
+				}
+			}
+		});
+		return targetCanvas;
 	}
 
 	private _adjustSizeImpl(): void {
@@ -224,7 +315,12 @@ export class ChartWidget implements IDestroyable {
 		const separatorCount = this._paneSeparators.length;
 		const separatorHeight = SEPARATOR_HEIGHT;
 		const separatorsHeight = separatorHeight * separatorCount;
-		const timeAxisHeight = this._options.timeScale.visible ? this._timeAxisWidget.optimalHeight() : 0;
+		let timeAxisHeight = this._options.timeScale.visible ? this._timeAxisWidget.optimalHeight() : 0;
+		// TODO: Fix it better
+		// on Hi-DPI CSS size * Device Pixel Ratio should be integer to avoid smoothing
+		if (timeAxisHeight % 2) {
+			timeAxisHeight += 1;
+		}
 		const otherWidgetHeight = separatorsHeight + timeAxisHeight;
 		const totalPaneHeight = height < otherWidgetHeight ? 0 : height - otherWidgetHeight;
 		const stretchPixels = totalPaneHeight / totalStretch;
@@ -278,7 +374,9 @@ export class ChartWidget implements IDestroyable {
 			return;
 		}
 
-		event.preventDefault();
+		if (event.cancelable) {
+			event.preventDefault();
+		}
 
 		switch (event.deltaMode) {
 			case event.DOM_DELTA_PAGE:
@@ -308,16 +406,16 @@ export class ChartWidget implements IDestroyable {
 	private _drawImpl(invalidateMask: InvalidateMask): void {
 		const invalidationType = invalidateMask.fullInvalidation();
 
+		// actions for full invalidation ONLY (not shared with light)
 		if (invalidationType === InvalidationLevel.Full) {
 			this._updateGui();
-			if (invalidateMask.getFitContent()) {
-				this._model.timeScale().fitContent();
-			}
-			const targetTimeRange = invalidateMask.getTargetTimeRange();
-			if (targetTimeRange !== null) {
-				this._model.timeScale().setTimePointsRange(targetTimeRange);
-			}
+		}
 
+		// light or full invalidate actions
+		if (
+			invalidationType === InvalidationLevel.Full ||
+			invalidationType === InvalidationLevel.Light
+		) {
 			const panes = this._model.panes();
 			for (let i = 0; i < panes.length; i++) {
 				if (invalidateMask.invalidateForPane(i).autoScale) {
@@ -325,14 +423,15 @@ export class ChartWidget implements IDestroyable {
 				}
 			}
 
-			this._timeAxisWidget.update();
-			for (let i = 0; i < this._paneWidgets.length; i++) {
-				this._paneWidgets[i].setState(this._model.panes()[i]);
-			}
-		} else if (invalidationType === InvalidationLevel.Light) {
 			if (invalidateMask.getFitContent()) {
 				this._model.timeScale().fitContent();
 			}
+
+			const targetTimeRange = invalidateMask.getTargetTimeRange();
+			if (targetTimeRange !== null) {
+				this._model.timeScale().setTimePointsRange(targetTimeRange);
+			}
+
 			this._timeAxisWidget.update();
 		}
 
@@ -420,18 +519,16 @@ export class ChartWidget implements IDestroyable {
 	}
 
 	private _getMouseEventParamsImpl(time: TimePointIndex | null, point: Point | null): MouseEventParamsImpl {
-		const seriesPrices = new Map<Series, number>();
+		const seriesPrices = new Map<Series, BarPrice | BarPrices>();
 		if (time !== null) {
 			const serieses = this._model.serieses();
 			serieses.forEach((s: Series) => {
 				// TODO: replace with search left
-				const prices = s.data().valueAt(time);
+				const prices = s.dataAt(time);
 				if (prices !== null) {
-					const price = s.barFunction()(prices.value);
-					seriesPrices.set(s, price);
+					seriesPrices.set(s, prices);
 				}
 			});
-
 		}
 		let clientTime: TimePoint | undefined;
 		if (time !== null) {
@@ -441,21 +538,31 @@ export class ChartWidget implements IDestroyable {
 			}
 		}
 
+		const hoveredSource = this.model().hoveredSource();
+
+		const hoveredSeries = hoveredSource !== null && hoveredSource.source instanceof Series
+			? hoveredSource.source
+			: undefined;
+
+		const hoveredObject = hoveredSource !== null && hoveredSource.object !== undefined
+			? hoveredSource.object.externalId
+			: undefined;
+
 		return {
 			time: clientTime,
 			point: point || undefined,
+			hoveredSeries,
 			seriesPrices,
+			hoveredObject,
 		};
 	}
 
 	private _onPaneWidgetClicked(time: TimePointIndex | null, point: Point): void {
-		const param = this._getMouseEventParamsImpl(time, point);
-		this._clicked.fire(param);
+		this._clicked.fire(() => this._getMouseEventParamsImpl(time, point));
 	}
 
 	private _onPaneWidgetCrosshairMoved(time: TimePointIndex | null, point: Point | null): void {
-		const param = this._getMouseEventParamsImpl(time, point);
-		this._crosshairMoved.fire(param);
+		this._crosshairMoved.fire(() => this._getMouseEventParamsImpl(time, point));
 	}
 
 	private _updateTimeAxisVisibility(): void {

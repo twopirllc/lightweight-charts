@@ -20,7 +20,7 @@ function generatePageContent(standaloneBundlePath: string, testCaseCode: string)
 
 const testStandalonePathEnvKey = 'TEST_STANDALONE_PATH';
 
-const testStandalonePath = process.env[testStandalonePathEnvKey] || '';
+const testStandalonePath: string = process.env[testStandalonePathEnvKey] || '';
 
 async function getReferencesCount(frame: Frame, prototypeReference: JSHandle): Promise<number> {
 	const context = await frame.executionContext();
@@ -32,6 +32,7 @@ async function getReferencesCount(frame: Frame, prototypeReference: JSHandle): P
 	return activeRefsCount;
 }
 
+// tslint:disable-next-line:invalid-void
 function promisleep(ms: number): Promise<void> {
 	return new Promise((resolve: () => void) => {
 		setTimeout(resolve, ms);

@@ -1,17 +1,20 @@
 import { DeepPartial } from '../helpers/strict-type-checks';
 
+import { BarPrice, BarPrices } from '../model/bar';
 import { ChartOptions } from '../model/chart-model';
 import { Point } from '../model/point';
+import { SeriesMarker } from '../model/series-markers';
 import {
 	AreaSeriesPartialOptions,
 	BarSeriesPartialOptions,
-	CandleSeriesPartialOptions,
+	CandlestickSeriesPartialOptions,
 	HistogramSeriesPartialOptions,
 	LineSeriesPartialOptions,
 	SeriesType,
 } from '../model/series-options';
 import { BusinessDay, UTCTimestamp } from '../model/time-data';
 
+import { Time } from './data-consumer';
 import { IPriceScaleApi } from './iprice-scale-api';
 import { ISeriesApi } from './iseries-api';
 import { ITimeScaleApi, TimeRange } from './itime-scale-api';
@@ -19,7 +22,9 @@ import { ITimeScaleApi, TimeRange } from './itime-scale-api';
 export interface MouseEventParams {
 	time?: UTCTimestamp | BusinessDay;
 	point?: Point;
-	seriesPrices: Map<ISeriesApi<SeriesType>, number>;
+	seriesPrices: Map<ISeriesApi<SeriesType>, BarPrice | BarPrices>;
+	hoveredSeries?: ISeriesApi<SeriesType>;
+	hoveredMarkerId?: SeriesMarker<Time>['id'];
 }
 
 export type MouseEventHandler = (param: MouseEventParams) => void;
@@ -36,46 +41,46 @@ export interface IChartApi {
 
 	/**
 	 * Sets fixed size of the chart. By default chart takes up 100% of its container
-	 * @param height - target height of the chart
 	 * @param width - target width of the chart
+	 * @param height - target height of the chart
 	 * @param forceRepaint - true to initiate resize immediately. One could need this to get screenshot immediately after resize
 	 */
-	resize(height: number, width: number, forceRepaint?: boolean): void;
+	resize(width: number, height: number, forceRepaint?: boolean): void;
 
 	/**
 	 * Creates an area series with specified parameters
-	 * @param areaParams - customization parameters of the series being created
+	 * @param areaOptions - customization parameters of the series being created
 	 * @returns an interface of the created series
 	 */
-	addAreaSeries(areaParams?: AreaSeriesPartialOptions): ISeriesApi<'Area'>;
+	addAreaSeries(areaOptions?: AreaSeriesPartialOptions): ISeriesApi<'Area'>;
 
 	/**
 	 * Creates a bar series with specified parameters
-	 * @param barParams - customization parameters of the series being created
+	 * @param barOptions - customization parameters of the series being created
 	 * @returns an interface of the created series
 	 */
-	addBarSeries(barParams?: BarSeriesPartialOptions): ISeriesApi<'Bar'>;
+	addBarSeries(barOptions?: BarSeriesPartialOptions): ISeriesApi<'Bar'>;
 
 	/**
-	 * Creates a candle series with specified parameters
-	 * @param candleParams - customization parameters of the series being created
+	 * Creates a candlestick series with specified parameters
+	 * @param candlestickOptions - customization parameters of the series being created
 	 * @returns an interface of the created series
 	 */
-	addCandleSeries(candleParams?: CandleSeriesPartialOptions): ISeriesApi<'Candle'>;
+	addCandlestickSeries(candlestickOptions?: CandlestickSeriesPartialOptions): ISeriesApi<'Candlestick'>;
 
 	/**
 	 * Creates a histogram series with specified parameters
-	 * @param histogramParams - customization parameters of the series being created
+	 * @param histogramOptions - customization parameters of the series being created
 	 * @returns an interface of the created series
 	 */
-	addHistogramSeries(histogramParams?: HistogramSeriesPartialOptions): ISeriesApi<'Histogram'>;
+	addHistogramSeries(histogramOptions?: HistogramSeriesPartialOptions): ISeriesApi<'Histogram'>;
 
 	/**
 	 * Creates a line series with specified parameters
-	 * @param lineParams - customization parameters of the series being created
+	 * @param lineOptions - customization parameters of the series being created
 	 * @returns an interface of the created series
 	 */
-	addLineSeries(lineParams?: LineSeriesPartialOptions): ISeriesApi<'Line'>;
+	addLineSeries(lineOptions?: LineSeriesPartialOptions): ISeriesApi<'Line'>;
 
 	/**
 	 * Removes a series of any type. This is an irreversible operation, you cannot do anything with the series after removing it
@@ -143,8 +148,8 @@ export interface IChartApi {
 	options(): Readonly<ChartOptions>;
 
 	/**
-	 * Removes branding text from the chart.
-	 * Please read the description of this method in the documentation to learn more about the conditions of branding removal.
+	 * Make a screenshot of the chart with all the elements excluding crosshair.
+	 * @returns a canvas with the chart drawn on
 	 */
-	disableBranding(): void;
+	takeScreenshot(): HTMLCanvasElement;
 }

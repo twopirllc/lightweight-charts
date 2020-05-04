@@ -1,4 +1,6 @@
-import { getContext2d } from '../helpers/canvas-wrapper';
+import { Binding as CanvasCoordinateSpaceBinding, bindToDevicePixelRatio } from 'fancy-canvas/coordinate-space';
+
+import { ensureNotNull } from '../helpers/assertions';
 
 export class Size {
 	public h: number;
@@ -14,30 +16,68 @@ export class Size {
 	}
 }
 
-export function resizeCanvas(canvas: HTMLCanvasElement, newSize: Size): void {
-	canvas.width = newSize.w;
-	canvas.height = newSize.h;
-
-	const ctx = getContext2d(canvas);
-	if (ctx) {
-		ctx.translate(0.5, 0.5);
-	}
+export function getCanvasDevicePixelRatio(canvas: HTMLCanvasElement): number {
+	return canvas.ownerDocument &&
+		canvas.ownerDocument.defaultView &&
+		canvas.ownerDocument.defaultView.devicePixelRatio
+		|| 1;
 }
 
-export function clearRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, clearColor: string): void {
-	ctx.save();
-	ctx.translate(-0.5, -0.5);
-
-	ctx.fillStyle = clearColor;
-	ctx.fillRect(x, y, w, h);
-	ctx.restore();
+export function getContext2D(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+	const ctx = ensureNotNull(canvas.getContext('2d'));
+	// sometimes (very often) ctx getContext returns the same context every time
+	// and there might be previous transformation
+	// so let's reset it to be sure that everything is ok
+	// do no use resetTransform to respect Edge
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	return ctx;
 }
 
-export function addCanvasTo(element: HTMLElement, size: Size): HTMLCanvasElement {
-	const canvas = document.createElement('canvas');
-	element.appendChild(canvas);
-
-	resizeCanvas(canvas, size);
-
+function createCanvas(doc: Document): HTMLCanvasElement {
+	const canvas = doc.createElement('canvas');
+	disableSelection(canvas);
 	return canvas;
+}
+
+export function createPreconfiguredCanvas(doc: Document, size: Size): HTMLCanvasElement {
+	const canvas = createCanvas(doc);
+
+	const pixelRatio = getCanvasDevicePixelRatio(canvas);
+	// we should keep the layout size...
+	canvas.style.width = `${size.w}px`;
+	canvas.style.height = `${size.h}px`;
+	// ...but multiply coordinate space dimensions to device pixel ratio
+	canvas.width = size.w * pixelRatio;
+	canvas.height = size.h * pixelRatio;
+	return canvas;
+}
+
+export function createBoundCanvas(parentElement: HTMLElement, size: Size): CanvasCoordinateSpaceBinding {
+	const doc = ensureNotNull(parentElement.ownerDocument);
+	const canvas = createCanvas(doc);
+	parentElement.appendChild(canvas);
+
+	const binding = bindToDevicePixelRatio(canvas);
+	binding.resizeCanvas({
+		width: size.w,
+		height: size.h,
+	});
+	return binding;
+}
+
+function disableSelection(canvas: HTMLCanvasElement): void {
+	canvas.style.userSelect = 'none';
+	canvas.style.webkitUserSelect = 'none';
+	canvas.style.msUserSelect = 'none';
+	// tslint:disable-next-line:no-any
+	(canvas as any).style.MozUserSelect = 'none';
+
+	canvas.style.webkitTapHighlightColor = 'transparent';
+}
+
+export function drawScaled(ctx: CanvasRenderingContext2D, ratio: number, func: () => void): void {
+	ctx.save();
+	ctx.scale(ratio, ratio);
+	func();
+	ctx.restore();
 }

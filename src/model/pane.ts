@@ -8,7 +8,7 @@ import { ChartModel } from './chart-model';
 import { IDataSource } from './idata-source';
 import { IPriceDataSource } from './iprice-data-source';
 import { PriceDataSource } from './price-data-source';
-import { PriceScale, PriceScaleState } from './price-scale';
+import { PriceScale, PriceScaleMode, PriceScaleState } from './price-scale';
 import { Series } from './series';
 import { sortSources } from './sort-sources';
 import { TimeScale } from './time-scale';
@@ -54,7 +54,6 @@ export class Pane implements IDestroyable {
 
 	public destroy(): void {
 		this.model().mainPriceScaleOptionsChanged().unsubscribeAll(this);
-		this._timeScale.barSpacingChanged().unsubscribeAll(this);
 
 		this._defaultNonOverlayPriceScale.modeChanged().unsubscribeAll(this);
 
@@ -266,7 +265,7 @@ export class Pane implements IDestroyable {
 		});
 
 		this.updateAllViews();
-		this._model.updatePane(this);
+		this._model.lightUpdate();
 	}
 
 	public isEmpty(): boolean {
@@ -294,7 +293,7 @@ export class Pane implements IDestroyable {
 			return this._defaultNonOverlayPriceScale;
 		}
 
-		return this._createPriceScale();
+		return this._createPriceScale(true);
 	}
 
 	private _recalculatePriceScaleImpl(priceScale: PriceScale): void {
@@ -403,9 +402,17 @@ export class Pane implements IDestroyable {
 		this._mainDataSource = source;
 	}
 
-	private _createPriceScale(): PriceScale {
+	private _createPriceScale(overlay?: boolean): PriceScale {
+		const priceScaleOptions = clone(this._model.options().priceScale);
+
+		if (overlay) {
+			// overlay scales should be normal with auto scale enabled
+			priceScaleOptions.autoScale = true;
+			priceScaleOptions.mode = PriceScaleMode.Normal;
+		}
+
 		const priceScale = new PriceScale(
-			clone(this._model.options().priceScale),
+			priceScaleOptions,
 			this._model.options().layout,
 			this._model.options().localization
 		);
