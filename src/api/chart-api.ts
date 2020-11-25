@@ -25,11 +25,10 @@ import {
 	PriceFormatBuiltIn,
 	SeriesType,
 } from '../model/series-options';
-import { TimePointIndex } from '../model/time-data';
 
 import { CandlestickSeriesApi } from './candlestick-series-api';
 import { DataUpdatesConsumer, SeriesDataItemTypeMap } from './data-consumer';
-import { DataLayer, SeriesUpdatePacket } from './data-layer';
+import { DataLayer, DataUpdateResponse, SeriesChanges } from './data-layer';
 import { IChartApi, MouseEventHandler, MouseEventParams } from './ichart-api';
 import { IPriceScaleApi } from './iprice-scale-api';
 import { ISeriesApi } from './iseries-api';
@@ -44,7 +43,7 @@ import {
 	seriesOptionsDefaults,
 } from './options/series-options-defaults';
 import { PriceScaleApi } from './price-scale-api';
-import { SeriesApi } from './series-api';
+import { migrateOptions, SeriesApi } from './series-api';
 import { TimeScaleApi } from './time-scale-api';
 
 function patchPriceFormat(priceFormat?: DeepPartial<PriceFormat>): void {
@@ -58,13 +57,22 @@ function patchPriceFormat(priceFormat?: DeepPartial<PriceFormat>): void {
 }
 
 function migrateHandleScaleScrollOptions(options: DeepPartial<ChartOptions>): void {
-	const handleScale = options.handleScale;
-	if (isBoolean(handleScale)) {
+	if (isBoolean(options.handleScale)) {
+		const handleScale = options.handleScale;
 		options.handleScale = {
 			axisDoubleClickReset: handleScale,
-			axisPressedMouseMove: handleScale,
+			axisPressedMouseMove: {
+				time: handleScale,
+				price: handleScale,
+			},
 			mouseWheel: handleScale,
 			pinch: handleScale,
+		};
+	} else if (options.handleScale !== undefined && isBoolean(options.handleScale.axisPressedMouseMove)) {
+		const axisPressedMouseMove = options.handleScale.axisPressedMouseMove;
+		options.handleScale.axisPressedMouseMove = {
+			time: axisPressedMouseMove,
+			price: axisPressedMouseMove,
 		};
 	}
 
@@ -80,16 +88,19 @@ function migrateHandleScaleScrollOptions(options: DeepPartial<ChartOptions>): vo
 }
 
 function migratePriceScaleOptions(options: DeepPartial<ChartOptions>): void {
+	/* eslint-disable deprecation/deprecation */
 	if (options.priceScale) {
 		warn('"priceScale" option has been deprecated, use "leftPriceScale", "rightPriceScale" and "overlayPriceScales" instead');
+
 		options.leftPriceScale = options.leftPriceScale || {};
 		options.rightPriceScale = options.rightPriceScale || {};
-		// tslint:disable-next-line:deprecation
+
 		const position = options.priceScale.position;
-		// tslint:disable-next-line:deprecation
 		delete options.priceScale.position;
+
 		options.leftPriceScale = merge(options.leftPriceScale, options.priceScale);
 		options.rightPriceScale = merge(options.rightPriceScale, options.priceScale);
+
 		if (position === 'left') {
 			options.leftPriceScale.visible = true;
 			options.rightPriceScale.visible = false;
@@ -112,6 +123,7 @@ function migratePriceScaleOptions(options: DeepPartial<ChartOptions>): void {
 			options.overlayPriceScales.scaleMargins = options.priceScale.scaleMargins;
 		}
 	}
+	/* eslint-enable deprecation/deprecation */
 }
 
 function toInternalOptions(options: DeepPartial<ChartOptions>): DeepPartial<ChartOptionsInternal> {
@@ -121,11 +133,9 @@ function toInternalOptions(options: DeepPartial<ChartOptions>): DeepPartial<Char
 	return options as DeepPartial<ChartOptionsInternal>;
 }
 
-export interface IPriceScaleApiProvider {
-	priceScale(id: string): IPriceScaleApi;
-}
+export type IPriceScaleApiProvider = Pick<IChartApi, 'priceScale'>;
 
-export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesConsumer<SeriesType> {
+export class ChartApi implements IChartApi, DataUpdatesConsumer<SeriesType> {
 	private _chartWidget: ChartWidget;
 	private _dataLayer: DataLayer = new DataLayer();
 	private readonly _seriesMap: Map<SeriesApi<SeriesType>, Series> = new Map();
@@ -170,16 +180,13 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 
 		this._timeScaleApi.destroy();
 		this._chartWidget.destroy();
-		delete this._chartWidget;
-		this._seriesMap.forEach((series: Series, api: SeriesApi<SeriesType>) => {
-			api.destroy();
-		});
+
 		this._seriesMap.clear();
 		this._seriesMapReversed.clear();
+
 		this._clickedDelegate.destroy();
 		this._crosshairMovedDelegate.destroy();
 		this._dataLayer.destroy();
-		delete this._dataLayer;
 	}
 
 	public resize(width: number, height: number, forceRepaint?: boolean): void {
@@ -187,6 +194,7 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	}
 
 	public addAreaSeries(options: AreaSeriesPartialOptions = {}): ISeriesApi<'Area'> {
+		options = migrateOptions(options);
 		patchPriceFormat(options.priceFormat);
 
 		const strictOptions = merge(clone(seriesOptionsDefaults), areaStyleDefaults, options) as AreaSeriesOptions;
@@ -200,6 +208,7 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	}
 
 	public addBarSeries(options: BarSeriesPartialOptions = {}): ISeriesApi<'Bar'> {
+		options = migrateOptions(options);
 		patchPriceFormat(options.priceFormat);
 
 		const strictOptions = merge(clone(seriesOptionsDefaults), barStyleDefaults, options) as BarSeriesOptions;
@@ -213,6 +222,7 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	}
 
 	public addCandlestickSeries(options: CandlestickSeriesPartialOptions = {}): ISeriesApi<'Candlestick'> {
+		options = migrateOptions(options);
 		fillUpDownCandlesticksColors(options);
 		patchPriceFormat(options.priceFormat);
 
@@ -227,6 +237,7 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	}
 
 	public addHistogramSeries(options: HistogramSeriesPartialOptions = {}): ISeriesApi<'Histogram'> {
+		options = migrateOptions(options);
 		patchPriceFormat(options.priceFormat);
 
 		const strictOptions = merge(clone(seriesOptionsDefaults), histogramStyleDefaults, options) as HistogramSeriesOptions;
@@ -240,6 +251,7 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	}
 
 	public addLineSeries(options: LineSeriesPartialOptions = {}): ISeriesApi<'Line'> {
+		options = migrateOptions(options);
 		patchPriceFormat(options.priceFormat);
 
 		const strictOptions = merge(clone(seriesOptionsDefaults), lineStyleDefaults, options) as LineSeriesOptions;
@@ -252,46 +264,25 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 		return res;
 	}
 
-	public removeSeries(seriesApi: ISeriesApi<SeriesType>): void {
-		const seriesObj = seriesApi as SeriesApi<SeriesType>;
-		const series = ensureDefined(this._seriesMap.get(seriesObj));
+	public removeSeries(seriesApi: SeriesApi<SeriesType>): void {
+		const series = ensureDefined(this._seriesMap.get(seriesApi));
 
 		const update = this._dataLayer.removeSeries(series);
 		const model = this._chartWidget.model();
 		model.removeSeries(series);
-		const timeScaleUpdate = update.timeScaleUpdate;
-		model.updateTimeScale(timeScaleUpdate.index, timeScaleUpdate.changes, timeScaleUpdate.marks, true);
-		timeScaleUpdate.seriesUpdates.forEach((value: SeriesUpdatePacket, key: Series) => {
-			key.updateData(value.update);
-		});
-		model.updateTimeScaleBaseIndex(0 as TimePointIndex);
-		this._seriesMap.delete(seriesObj);
+
+		this._sendUpdateToChart(update);
+
+		this._seriesMap.delete(seriesApi);
 		this._seriesMapReversed.delete(series);
 	}
 
 	public applyNewData<TSeriesType extends SeriesType>(series: Series<TSeriesType>, data: SeriesDataItemTypeMap[TSeriesType][]): void {
-		const update = this._dataLayer.setSeriesData(series, data);
-		const model = this._chartWidget.model();
-		const timeScaleUpdate = update.timeScaleUpdate;
-		model.updateTimeScale(timeScaleUpdate.index, timeScaleUpdate.changes, timeScaleUpdate.marks, true);
-		timeScaleUpdate.seriesUpdates.forEach((value: SeriesUpdatePacket, key: Series) => {
-			// the latest arg `true` must be removed in https://github.com/tradingview/lightweight-charts/issues/270
-			// here we don't need to clear palettes because they were just filled in DataLayer
-			// see https://github.com/tradingview/lightweight-charts/pull/330#discussion_r379415805
-			key.updateData(value.update, true);
-		});
-		model.updateTimeScaleBaseIndex(0 as TimePointIndex);
+		this._sendUpdateToChart(this._dataLayer.setSeriesData(series, data));
 	}
 
 	public updateData<TSeriesType extends SeriesType>(series: Series<TSeriesType>, data: SeriesDataItemTypeMap[TSeriesType]): void {
-		const update = this._dataLayer.updateSeriesData(series, data);
-		const model = this._chartWidget.model();
-		const timeScaleUpdate = update.timeScaleUpdate;
-		model.updateTimeScale(timeScaleUpdate.index, timeScaleUpdate.changes, timeScaleUpdate.marks, false);
-		timeScaleUpdate.seriesUpdates.forEach((value: SeriesUpdatePacket, key: Series) => {
-			key.updateData(value.update);
-		});
-		model.updateTimeScaleBaseIndex(0 as TimePointIndex);
+		this._sendUpdateToChart(this._dataLayer.updateSeriesData(series, data));
 	}
 
 	public subscribeClick(handler: MouseEventHandler): void {
@@ -313,9 +304,9 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 	public priceScale(priceScaleId?: string): IPriceScaleApi {
 		if (priceScaleId === undefined) {
 			warn('Using ChartApi.priceScale() method without arguments has been deprecated, pass valid price scale id instead');
+			priceScaleId = this._chartWidget.model().defaultVisiblePriceScaleId();
 		}
 
-		priceScaleId = priceScaleId || this._chartWidget.model().defaultVisiblePriceScaleId();
 		return new PriceScaleApi(this._chartWidget, priceScaleId);
 	}
 
@@ -333,6 +324,15 @@ export class ChartApi implements IChartApi, IPriceScaleApiProvider, DataUpdatesC
 
 	public takeScreenshot(): HTMLCanvasElement {
 		return this._chartWidget.takeScreenshot();
+	}
+
+	private _sendUpdateToChart(update: DataUpdateResponse): void {
+		const model = this._chartWidget.model();
+
+		model.updateTimeScale(update.timeScale.baseIndex, update.timeScale.points);
+		update.series.forEach((value: SeriesChanges, series: Series) => series.updateData(value.data, value.fullUpdate));
+
+		model.recalculateAllPanes();
 	}
 
 	private _mapSeriesToApi(series: Series): ISeriesApi<SeriesType> {

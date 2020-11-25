@@ -1,6 +1,5 @@
-// eslint-disable-next-line no-unused-vars
 function runTestCase(container) {
-	var chart = LightweightCharts.createChart(container, {
+	const chart = LightweightCharts.createChart(container, {
 		timeScale: {
 			fixLeftEdge: true,
 		},
@@ -17,7 +16,7 @@ function runTestCase(container) {
 		{ time: '2017-04-23', value: 91.89 },
 	]);
 
-	return new Promise((resolve) => {
+	return new Promise(resolve => {
 		setTimeout(() => {
 			line.setData([
 				{ time: '2017-04-10', value: 85.01 },

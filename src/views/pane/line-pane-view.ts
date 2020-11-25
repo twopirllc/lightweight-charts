@@ -10,15 +10,18 @@ import { LinePaneViewBase } from './line-pane-view-base';
 export class SeriesLinePaneView extends LinePaneViewBase<'Line', LineItem> {
 	private readonly _lineRenderer: PaneRendererLine = new PaneRendererLine();
 
+	// eslint-disable-next-line no-useless-constructor
 	public constructor(series: Series<'Line'>, model: ChartModel) {
 		super(series, model);
 	}
 
-	public renderer(height: number, width: number): IPaneRenderer {
-		this._makeValid();
-
+	public renderer(height: number, width: number): IPaneRenderer | null {
 		const lineStyleProps = this._series.options();
+		if (!lineStyleProps.visible) {
+			return null;
+		}
 
+		this._makeValid();
 		const data: PaneRendererLineData = {
 			items: this._items,
 			lineColor: lineStyleProps.color,
@@ -26,6 +29,7 @@ export class SeriesLinePaneView extends LinePaneViewBase<'Line', LineItem> {
 			lineType: lineStyleProps.lineType,
 			lineWidth: lineStyleProps.lineWidth,
 			visibleRange: this._itemsVisibleRange,
+			barWidth: this._model.timeScale().barSpacing(),
 		};
 
 		this._lineRenderer.setData(data);

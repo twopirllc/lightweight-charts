@@ -1,13 +1,13 @@
 import { ensureNotNull } from '../../helpers/assertions';
-import { generateTextColor } from '../../helpers/color';
+import { generateContrastColors } from '../../helpers/color';
 
 import { ChartModel } from '../../model/chart-model';
 import { Crosshair, TimeAndCoordinateProvider } from '../../model/crosshair';
 import { TimeAxisViewRenderer, TimeAxisViewRendererData } from '../../renderers/time-axis-view-renderer';
 
-import { TimeAxisView } from './time-axis-view';
+import { ITimeAxisView } from './itime-axis-view';
 
-export class CrosshairTimeAxisView extends TimeAxisView {
+export class CrosshairTimeAxisView implements ITimeAxisView {
 	private _invalidated: boolean = true;
 	private readonly _crosshair: Crosshair;
 	private readonly _model: ChartModel;
@@ -23,8 +23,6 @@ export class CrosshairTimeAxisView extends TimeAxisView {
 	};
 
 	public constructor(crosshair: Crosshair, model: ChartModel, valueProvider: TimeAndCoordinateProvider) {
-		super();
-
 		this._crosshair = crosshair;
 		this._model = model;
 		this._valueProvider = valueProvider;
@@ -60,7 +58,7 @@ export class CrosshairTimeAxisView extends TimeAxisView {
 			return;
 		}
 
-		const currentTime = timeScale.indexToUserTime(this._crosshair.appliedIndex());
+		const currentTime = timeScale.indexToTime(this._crosshair.appliedIndex());
 		data.width = timeScale.width();
 
 		const value = this._valueProvider();
@@ -71,7 +69,9 @@ export class CrosshairTimeAxisView extends TimeAxisView {
 		data.coordinate = value.coordinate;
 		data.text = timeScale.formatDateTime(ensureNotNull(currentTime));
 		data.visible = true;
-		data.background = options.labelBackgroundColor;
-		data.color = generateTextColor(options.labelBackgroundColor);
+
+		const colors = generateContrastColors(options.labelBackgroundColor);
+		data.background = colors.background;
+		data.color = colors.foreground;
 	}
 }

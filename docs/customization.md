@@ -8,17 +8,16 @@ Most of the chart settings can be set right when creating a chart. Subsequently,
 
 First of all, the preferred chart size should be set when creating a chart:
 
-```javascript
-const chart = createChart(document.body, {
-        width: 600,
-        height: 380,
-    },
+```js
+const chart = LightweightCharts.createChart(document.body, {
+    width: 600,
+    height: 380,
 });
 ```
 
 If you want the chart size to be adjusted when the web page is resized, use the `resize` function to set the width and height of the chart:
 
-```javascript
+```js
 chart.resize(250, 150);
 ```
 
@@ -32,8 +31,8 @@ By default, the library uses browser language settings.
 Thus, the displayed date and time format may differ depending on the region of the user.
 To set the same language settings for all users, use the `locale` property of the `localization` option:
 
-```javascript
-const chart = createChart(document.body, {
+```js
+const chart = LightweightCharts.createChart(document.body, {
     localization: {
         locale: 'ja-JP',
     },
@@ -42,11 +41,11 @@ const chart = createChart(document.body, {
 
 Using the `applyOptions` function you can change the locale at any time after the chart creation:
 
-```javascript
+```js
 chart.applyOptions({
-   localization: {
+    localization: {
         locale: 'en-US',
-   },
+    },
 });
 ```
 
@@ -63,8 +62,8 @@ The format string might contain "special" sequences, which will be replaced with
 - `MM` - numeric (with leading zero if needed) month value (e.g. 03)
 - `dd` - day of month (with leading zero if needed) value (e.g. 15)
 
-```javascript
-const chart = createChart(document.body, {
+```js
+const chart = LightweightCharts.createChart(document.body, {
     localization: {
         dateFormat: 'yyyy/MM/dd',
     },
@@ -77,10 +76,10 @@ const chart = createChart(document.body, {
 
 Changing the time format of the time scale labels is not available currently but we intend to roll this out in the future.
 
-```javascript
-const chart = createChart(document.body, {
+```js
+const chart = LightweightCharts.createChart(document.body, {
     localization: {
-        timeFormatter: function(businessDayOrTimestamp) {
+        timeFormatter: businessDayOrTimestamp => {
             // console.log(businessDayOrTimestamp);
 
             if (LightweightCharts.isBusinessDay(businessDayOrTimestamp)) {
@@ -97,14 +96,14 @@ const chart = createChart(document.body, {
 
 `priceFormatter` function can be used for the format customization of the price displayed on the price scale for crosshair value and labels.
 
-```javascript
-const chart = createChart(document.body, {
+```js
+const chart = LightweightCharts.createChart(document.body, {
     localization: {
-        priceFormatter: function(price) {
-            // add $ sign before price
+        priceFormatter: price =>
+        // add $ sign before price
 
-            return '$' + price;
-        },
+            '$' + price
+        ,
     },
 });
 ```
@@ -135,10 +134,11 @@ The following set of options can be used to adjust the price axis interface:
 |`borderColor`|`string`|`#2b2b43`|Pricescale border color|
 |`scaleMargins`|`{ bottom, top }`|`{ bottom: 0.1, top: 0.2 }`|Sets the series margins from the top and bottom chart borders (percent)|
 |`entireTextOnly`|`boolean`|`false`|If false, top and bottom corner labels are shown even if they are partially not visible |
+|`drawTicks`|`boolean`|`true`|If true, a small horizontal line is drawn on price axis labels|
 
 ### An example of a price scale customization
 
-```javascript
+```js
 chart.applyOptions({
     priceScale: {
         position: 'left',
@@ -185,7 +185,7 @@ The following options are available for vertical and horizontal lines of a cross
 
 ### An example of a crosshair customization
 
-```javascript
+```js
 chart.applyOptions({
     crosshair: {
         vertLine: {
@@ -223,7 +223,7 @@ The following options are available for vertical and horizontal lines of a grid:
 
 ### An example of a grid customization
 
-```javascript
+```js
 chart.applyOptions({
     grid: {
         vertLines: {
@@ -256,12 +256,14 @@ The following options are available for the watermark:
 |`visible`|`boolean`|`false`|If true, the watermark is displayed on a chart|
 |`text`|`string`|`''`|Contains the text to be displayed in the watermark|
 |`fontSize`|`number`|`48`|Watermark's font size in pixels|
+|`fontFamily`|`string`|`'Trebuchet MS', Roboto, Ubuntu, sans-serif`|Watermark's font family|
+|`fontStyle`|`string`|`''`|Watermark's font style|
 |`horzAlign`|`left` &#124; `center` &#124; `right`|`center`|Watermark horizontal alignment position|
 |`vertAlign`|`top` &#124; `center` &#124; `bottom`|`center`|Watermark vertical alignment position|
 
 ### An example of a watermark customization
 
-```javascript
+```js
 chart.applyOptions({
     watermark: {
         color: 'rgba(11, 94, 29, 0.4)',
@@ -287,7 +289,7 @@ The following options can be used to customize chart design:
 
 ### An example of layout customization
 
-```javascript
+```js
 chart.applyOptions({
     layout: {
         backgroundColor: '#FAEBD7',
@@ -318,16 +320,25 @@ You can also set `handleScroll` to `true` or `false` to enable or disable all th
 
 |Name                        |Type   |Default  |Description|
 |----------------------------|-------|---------|-|
-|`axisPressedMouseMove`|`boolean`|`true`|If true, axis scaling with left mouse button pressed is allowed|
+|`axisPressedMouseMove`|[`{ time, price }`](#axis-scaling-options)|`{ time: true, price: true }`|Sets time and price axis scaling with left mouse button pressed is allowed|
 |`axisDoubleClickReset`|`boolean`|`true`|If true, left mouse button double click axis resetting is allowed|
 |`mouseWheel`|`boolean`|`true`|If true, series scaling with a mouse wheel is enabled|
 |`pinch`|`boolean`|`true`|If true, series scaling with pinch/zoom gestures (this option is supported on touch devices) is enabled|
 
 You can also set `handleScale` to `true` or `false` to enable or disable all the above options.
 
+## Axis scaling options
+
+|Name                        |Type   |Default  |Description|
+|----------------------------|-------|---------|-|
+|`time`|`boolean`|`true`|If true, time axis scaling with left mouse button pressed is allowed|
+|`price`|`boolean`|`true`|If true, price axis scaling with left mouse button pressed is allowed|
+
+You can also set `axisPressedMouseMove` to `true` or `false` to enable or disable all the above options.
+
 ### An example of a scrolling/scaling customization
 
-```javascript
+```js
 chart.applyOptions({
     handleScroll: {
         mouseWheel: true,

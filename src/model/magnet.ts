@@ -4,8 +4,8 @@ import { Coordinate } from './coordinate';
 import { CrosshairMode, CrosshairOptions } from './crosshair';
 import { IPriceDataSource } from './iprice-data-source';
 import { Pane } from './pane';
+import { PlotRowValueIndex } from './plot-data';
 import { Series } from './series';
-import { SeriesPlotIndex } from './series-data';
 import { TimePointIndex } from './time-data';
 
 export class Magnet {
@@ -31,12 +31,12 @@ export class Magnet {
 		const y = defaultPriceScale.priceToCoordinate(price, firstValue);
 
 		// get all serieses from the pane
-		const serieses: ReadonlyArray<Series> = pane.dataSources().filter(
+		const serieses: readonly Series[] = pane.dataSources().filter(
 			((ds: IPriceDataSource) => (ds instanceof Series)) as (ds: IPriceDataSource) => ds is Series);
 
 		const candidates = serieses.reduce(
 			(acc: Coordinate[], series: Series) => {
-				if (pane.isOverlay(series)) {
+				if (pane.isOverlay(series) || !series.options().visible) {
 					return acc;
 				}
 				const ps = series.priceScale();
@@ -49,13 +49,10 @@ export class Magnet {
 				if (bar === null) {
 					return acc;
 				}
-				const prices = [
-					bar.value[SeriesPlotIndex.Close] as number,
-				];
 
 				// convert bar to pixels
 				const firstPrice = ensure(series.firstValue());
-				return acc.concat(prices.map((barPrice: number) => ps.priceToCoordinate(barPrice, firstPrice.value)));
+				return acc.concat([ps.priceToCoordinate(bar.value[PlotRowValueIndex.Close], firstPrice.value)]);
 			},
 			[] as Coordinate[]);
 

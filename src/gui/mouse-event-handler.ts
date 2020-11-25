@@ -41,7 +41,6 @@ export interface TouchMouseEvent {
 	// TODO: remove this after rewriting MouseEventHandler to handle touch and mouse event separately
 	readonly type: 'touch' | 'mouse';
 
-	target: MouseEvent['target'];
 	view: MouseEvent['view'];
 }
 
@@ -158,8 +157,9 @@ export class MouseEventHandler implements IDestroyable {
 		this._processEvent(compatEvent, this._handler.mouseMoveEvent);
 	}
 
-	// tslint:disable-next-line:cyclomatic-complexity
+	// eslint-disable-next-line complexity
 	private _mouseMoveWithDownHandler(moveEvent: MouseEvent | TouchEvent): void {
+		// eslint-disable-next-line no-restricted-syntax
 		if ('button' in moveEvent && moveEvent.button !== MouseEventButton.Left) {
 			return;
 		}
@@ -228,6 +228,7 @@ export class MouseEventHandler implements IDestroyable {
 	}
 
 	private _mouseUpHandler(mouseUpEvent: MouseEvent | TouchEvent): void {
+		// eslint-disable-next-line no-restricted-syntax
 		if ('button' in mouseUpEvent && mouseUpEvent.button !== MouseEventButton.Left) {
 			return;
 		}
@@ -283,6 +284,7 @@ export class MouseEventHandler implements IDestroyable {
 	}
 
 	private _mouseDownHandler(downEvent: MouseEvent | TouchEvent): void {
+		// eslint-disable-next-line no-restricted-syntax
 		if ('button' in downEvent && downEvent.button !== MouseEventButton.Left) {
 			return;
 		}
@@ -355,9 +357,15 @@ export class MouseEventHandler implements IDestroyable {
 				if (!this._handler.mouseDownOutsideEvent) {
 					return;
 				}
+
+				if (event.composed && this._target.contains(event.composedPath()[0] as Element)) {
+					return;
+				}
+
 				if (event.target && this._target.contains(event.target as Element)) {
 					return;
 				}
+
 				this._handler.mouseDownOutsideEvent();
 			};
 
@@ -492,9 +500,9 @@ export class MouseEventHandler implements IDestroyable {
 		// TouchEvent has no clientX/Y coordinates:
 		// We have to use the last Touch instead
 		let eventLike: MouseEvent | Touch;
-		if ('touches' in event && event.touches.length) {
+		if ('touches' in event && event.touches.length) { // eslint-disable-line no-restricted-syntax
 			eventLike = event.touches[0];
-		} else if ('changedTouches' in event && event.changedTouches.length) {
+		} else if ('changedTouches' in event && event.changedTouches.length) { // eslint-disable-line no-restricted-syntax
 			eventLike = event.changedTouches[0];
 		} else {
 			eventLike = event as MouseEvent;
@@ -519,7 +527,6 @@ export class MouseEventHandler implements IDestroyable {
 
 			type: event.type.startsWith('mouse') ? 'mouse' : 'touch',
 
-			target: eventLike.target,
 			view: event.view,
 		};
 	}

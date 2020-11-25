@@ -23,7 +23,7 @@ import { Point } from './point';
 import { PriceScale, PriceScaleOptions } from './price-scale';
 import { Series, SeriesOptionsInternal } from './series';
 import { SeriesOptionsMap, SeriesType } from './series-options';
-import { LogicalRange, TickMark, TimePoint, TimePointIndex } from './time-data';
+import { LogicalRange, TimePointIndex, TimeScalePoint } from './time-data';
 import { TimeScale, TimeScaleOptions } from './time-scale';
 import { Watermark, WatermarkOptions } from './watermark';
 
@@ -37,8 +37,20 @@ export interface HandleScrollOptions {
 export interface HandleScaleOptions {
 	mouseWheel: boolean;
 	pinch: boolean;
-	axisPressedMouseMove: boolean;
+	axisPressedMouseMove: AxisPressedMouseMoveOptions | boolean;
 	axisDoubleClickReset: boolean;
+}
+
+type HandleScaleOptionsInternal =
+	Omit<HandleScaleOptions, 'axisPressedMouseMove'>
+	& {
+		/** @public */
+		axisPressedMouseMove: AxisPressedMouseMoveOptions;
+	};
+
+export interface AxisPressedMouseMoveOptions {
+	time: boolean;
+	price: boolean;
 }
 
 export interface HoveredObject {
@@ -73,8 +85,9 @@ export interface ChartOptions {
 	/** Structure with layout options */
 	layout: LayoutOptions;
 
-	/** @Deprecated options for price scales
-	 *  @internal
+	/**
+	 * @deprecated options for price scales
+	 * @internal
 	 */
 	priceScale: PriceScaleOptions;
 
@@ -102,8 +115,10 @@ export interface ChartOptions {
 export type ChartOptionsInternal =
 	Omit<ChartOptions, 'handleScroll' | 'handleScale' | 'priceScale'>
 	& {
+		/** @public */
 		handleScroll: HandleScrollOptions;
-		handleScale: HandleScaleOptions;
+		/** @public */
+		handleScale: HandleScaleOptionsInternal;
 	};
 
 export class ChartModel implements IDestroyable {
@@ -223,16 +238,11 @@ export class ChartModel implements IDestroyable {
 		return null;
 	}
 
-	public updateAllPaneViews(): void {
-		this._panes.forEach((p: Pane) => p.updateAllViews());
-		this.updateCrosshair();
-	}
-
 	public timeScale(): TimeScale {
 		return this._timeScale;
 	}
 
-	public panes(): ReadonlyArray<Pane> {
+	public panes(): readonly Pane[] {
 		return this._panes;
 	}
 
@@ -240,7 +250,7 @@ export class ChartModel implements IDestroyable {
 		return this._grid;
 	}
 
-	public watermarkSource(): Watermark | null {
+	public watermarkSource(): Watermark {
 		return this._watermark;
 	}
 
@@ -252,14 +262,9 @@ export class ChartModel implements IDestroyable {
 		return this._crosshairMoved;
 	}
 
-	public width(): number {
-		return this._width;
-	}
-
 	public setPaneHeight(pane: Pane, height: number): void {
 		pane.setHeight(height);
 		this.recalculateAllPanes();
-		this.lightUpdate();
 	}
 
 	public setWidth(width: number): void {
@@ -334,11 +339,6 @@ export class ChartModel implements IDestroyable {
 		this._invalidate(this._paneInvalidationMask(pane, InvalidationLevel.Light));
 	}
 
-	public setPriceAutoScale(pane: Pane, priceScale: PriceScale, autoScale: boolean): void {
-		pane.setPriceAutoScale(priceScale, autoScale);
-		this._invalidate(this._paneInvalidationMask(pane, InvalidationLevel.Light));
-	}
-
 	public resetPriceScale(pane: Pane, priceScale: PriceScale): void {
 		pane.resetPriceScale(priceScale);
 		this._invalidate(this._paneInvalidationMask(pane, InvalidationLevel.Light));
@@ -350,6 +350,7 @@ export class ChartModel implements IDestroyable {
 
 	/**
 	 * Zoom in/out the chart (depends on scale value).
+	 *
 	 * @param pointX - X coordinate of the point to apply the zoom (the point which should stay on its place)
 	 * @param scale - Zoom value. Negative value means zoom out, positive - zoom in.
 	 */
@@ -364,9 +365,7 @@ export class ChartModel implements IDestroyable {
 
 		timeScale.zoom(pointX, scale);
 
-		this.updateCrosshair();
 		this.recalculateAllPanes();
-		this.lightUpdate();
 	}
 
 	public scrollChart(x: Coordinate): void {
@@ -378,8 +377,6 @@ export class ChartModel implements IDestroyable {
 	public scaleTimeTo(x: Coordinate): void {
 		this._timeScale.scaleTo(x);
 		this.recalculateAllPanes();
-		this.updateCrosshair();
-		this.lightUpdate();
 	}
 
 	public endScaleTime(): void {
@@ -401,8 +398,6 @@ export class ChartModel implements IDestroyable {
 
 		this._timeScale.scrollTo(x);
 		this.recalculateAllPanes();
-		this.updateCrosshair();
-		this.lightUpdate();
 		return res;
 	}
 
@@ -411,13 +406,6 @@ export class ChartModel implements IDestroyable {
 		this.lightUpdate();
 
 		this._initialTimeScrollPos = null;
-	}
-
-	public resetTimeScale(): void {
-		this._timeScale.restoreDefault();
-		this.recalculateAllPanes();
-		this.updateCrosshair();
-		this.lightUpdate();
 	}
 
 	public invalidate(mask: InvalidateMask): void {
@@ -429,7 +417,7 @@ export class ChartModel implements IDestroyable {
 		this.lightUpdate();
 	}
 
-	public serieses(): ReadonlyArray<Series> {
+	public serieses(): readonly Series[] {
 		return this._serieses;
 	}
 
@@ -471,55 +459,38 @@ export class ChartModel implements IDestroyable {
 			const y = this._crosshair.originCoordY();
 			this.setAndSaveCurrentPosition(x, y, pane);
 		}
+
+		this._crosshair.updateAllViews();
 	}
 
-	public updateTimeScale(index: TimePointIndex, values: TimePoint[], marks: TickMark[], clearFlag: boolean): void {
-		if (clearFlag) {
-			// refresh timescale
-			this._timeScale.reset();
+	public updateTimeScale(newBaseIndex: TimePointIndex, newPoints?: readonly TimeScalePoint[]): void {
+		const oldFirstTime = this._timeScale.indexToTime(0 as TimePointIndex);
+
+		if (newPoints !== undefined) {
+			this._timeScale.update(newPoints);
 		}
 
-		this._timeScale.update(index, values, marks);
-	}
+		const newFirstTime = this._timeScale.indexToTime(0 as TimePointIndex);
 
-	public updateTimeScaleBaseIndex(earliestRowIndex?: TimePointIndex): void {
-		// get the latest series bar index
-		const lastSeriesBarIndex = this._serieses.reduce(
-			(currentRes: TimePointIndex | undefined, series: Series) => {
-				const seriesBars = series.bars();
-				if (seriesBars.isEmpty()) {
-					return currentRes;
-				}
-				const currentLastIndex = ensureNotNull(seriesBars.lastIndex());
-				return (currentRes === undefined) ? currentLastIndex : Math.max(currentLastIndex, currentRes) as TimePointIndex;
-			},
-			undefined);
+		const currentBaseIndex = this._timeScale.baseIndex();
+		const visibleBars = this._timeScale.visibleStrictRange();
 
-		if (lastSeriesBarIndex !== undefined) {
-			const timeScale = this._timeScale;
-			const currentBaseIndex = timeScale.baseIndex();
+		// if time scale cannot return current visible bars range (e.g. time scale has zero-width)
+		// then we do not need to update right offset to shift visible bars range to have the same right offset as we have before new bar
+		// (and actually we cannot)
+		if (visibleBars !== null && oldFirstTime !== null && newFirstTime !== null) {
+			const isLastSeriesBarVisible = visibleBars.contains(currentBaseIndex);
+			const isLeftBarShiftToLeft = oldFirstTime.timestamp > newFirstTime.timestamp;
+			const isSeriesPointsAdded = newBaseIndex > currentBaseIndex;
+			const isSeriesPointsAddedToRight = isSeriesPointsAdded && !isLeftBarShiftToLeft;
 
-			const visibleBars = timeScale.visibleStrictRange();
-
-			// if time scale cannot return current visible bars range (e.g. time scale has zero-width)
-			// then we do not need to update right offset to shift visible bars range to have the same right offset as we have before new bar
-			// (and actually we cannot)
-			if (visibleBars !== null) {
-				const isLastSeriesBarVisible = visibleBars.contains(currentBaseIndex);
-
-				if (earliestRowIndex !== undefined && earliestRowIndex > 0 && !isLastSeriesBarVisible) {
-					const compensationShift = lastSeriesBarIndex - currentBaseIndex;
-
-					timeScale.setRightOffset(timeScale.rightOffset() - compensationShift);
-				}
+			if (isSeriesPointsAddedToRight && !isLastSeriesBarVisible) {
+				const compensationShift = newBaseIndex - currentBaseIndex;
+				this._timeScale.setRightOffset(this._timeScale.rightOffset() - compensationShift);
 			}
-
-			timeScale.setBaseIndex(lastSeriesBarIndex);
 		}
 
-		this.updateCrosshair();
-		this.recalculateAllPanes();
-		this.lightUpdate();
+		this._timeScale.setBaseIndex(newBaseIndex);
 	}
 
 	public recalculatePane(pane: Pane | null): void {
@@ -534,8 +505,9 @@ export class ChartModel implements IDestroyable {
 	}
 
 	public recalculateAllPanes(): void {
+		this._watermark.updateAllViews();
 		this._panes.forEach((p: Pane) => p.recalculate());
-		this.updateAllPaneViews();
+		this.updateCrosshair();
 	}
 
 	public destroy(): void {
@@ -613,7 +585,25 @@ export class ChartModel implements IDestroyable {
 
 	public setTargetLogicalRange(range: LogicalRange): void {
 		const mask = new InvalidateMask(InvalidationLevel.Light);
-		mask.setLogicalRange(range);
+		mask.applyRange(range);
+		this._invalidate(mask);
+	}
+
+	public resetTimeScale(): void {
+		const mask = new InvalidateMask(InvalidationLevel.Light);
+		mask.resetTimeScale();
+		this._invalidate(mask);
+	}
+
+	public setBarSpacing(spacing: number): void {
+		const mask = new InvalidateMask(InvalidationLevel.Light);
+		mask.setBarSpacing(spacing);
+		this._invalidate(mask);
+	}
+
+	public setRightOffset(offset: number): void {
+		const mask = new InvalidateMask(InvalidationLevel.Light);
+		mask.setRightOffset(offset);
 		this._invalidate(mask);
 	}
 

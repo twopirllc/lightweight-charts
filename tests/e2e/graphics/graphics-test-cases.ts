@@ -16,11 +16,13 @@ import { getTestCases, TestCase } from './helpers/get-test-cases';
 import { Screenshoter } from './helpers/screenshoter';
 
 const dummyContent = fs.readFileSync(path.join(__dirname, 'helpers', 'test-page-dummy.html'), { encoding: 'utf-8' });
+const buildMode = process.env.PRODUCTION_BUILD === 'true' ? 'production' : 'development';
 
 function generatePageContent(standaloneBundlePath: string, testCaseCode: string): string {
 	return dummyContent
 		.replace('PATH_TO_STANDALONE_MODULE', standaloneBundlePath)
 		.replace('TEST_CASE_SCRIPT', testCaseCode)
+		.replace('{BUILD_MODE}', buildMode)
 	;
 }
 
@@ -72,7 +74,7 @@ function removeEmptyDirsRecursive(rootDir: string): void {
 	}
 }
 
-describe(`Graphics tests with devicePixelRatio=${devicePixelRatioStr}`, function(): void {
+describe(`Graphics tests with devicePixelRatio=${devicePixelRatioStr} (${buildMode} mode)`, function(): void {
 	// this tests are unstable sometimes :(
 	this.retries(5);
 
@@ -140,6 +142,7 @@ function registerTestCases(testCases: TestCase[], screenshoter: Screenshoter, ou
 				goldenScreenshot = await goldenScreenshotPromise;
 				writeTestDataItem('1.golden.png', PNG.sync.write(goldenScreenshot));
 			} catch (e) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 				errors.push(`=== Golden page ===\n${e.message}`);
 				failedPages.push('golden');
 			}
@@ -149,12 +152,13 @@ function registerTestCases(testCases: TestCase[], screenshoter: Screenshoter, ou
 				testScreenshot = await testScreenshotPromise;
 				writeTestDataItem('2.test.png', PNG.sync.write(testScreenshot));
 			} catch (e) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 				errors.push(`=== Test page ===\n${e.message}`);
 				failedPages.push('test');
 			}
 
 			if (goldenScreenshot !== null && testScreenshot !== null) {
-				const compareResult = await compareScreenshots(goldenScreenshot, testScreenshot);
+				const compareResult = compareScreenshots(goldenScreenshot, testScreenshot);
 
 				writeTestDataItem('3.diff.png', PNG.sync.write(compareResult.diffImg));
 

@@ -1,7 +1,5 @@
-import { ChartModel } from '../../model/chart-model';
-import { Series } from '../../model/series';
 import { SeriesBarColorer } from '../../model/series-bar-colorer';
-import { Bar } from '../../model/series-data';
+import { SeriesPlotRow } from '../../model/series-data';
 import { TimePointIndex } from '../../model/time-data';
 import {
 	BarItem,
@@ -15,14 +13,13 @@ import { BarsPaneViewBase } from './bars-pane-view-base';
 export class SeriesBarsPaneView extends BarsPaneViewBase<'Bar', BarItem> {
 	private readonly _renderer: PaneRendererBars = new PaneRendererBars();
 
-	public constructor(series: Series<'Bar'>, model: ChartModel) {
-		super(series, model);
-	}
-
-	public renderer(height: number, width: number): IPaneRenderer {
-		this._makeValid();
-
+	public renderer(height: number, width: number): IPaneRenderer | null {
 		const barStyleProps = this._series.options();
+		if (!barStyleProps.visible) {
+			return null;
+		}
+
+		this._makeValid();
 		const data: PaneRendererBarsData = {
 			bars: this._items,
 			barSpacing: this._model.timeScale().barSpacing(),
@@ -36,11 +33,10 @@ export class SeriesBarsPaneView extends BarsPaneViewBase<'Bar', BarItem> {
 		return this._renderer;
 	}
 
-	protected _createRawItem(time: TimePointIndex, bar: Bar, colorer: SeriesBarColorer): BarItem {
+	protected _createRawItem(time: TimePointIndex, bar: SeriesPlotRow, colorer: SeriesBarColorer): BarItem {
 		return {
 			...this._createDefaultItem(time, bar, colorer),
 			color: colorer.barStyle(time).barColor,
 		};
 	}
-
 }

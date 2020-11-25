@@ -103,9 +103,7 @@ export class PaneWidget implements IDestroyable {
 		this._rowElement.appendChild(this._leftAxisCell);
 		this._rowElement.appendChild(this._paneCell);
 		this._rowElement.appendChild(this._rightAxisCell);
-		this._recreatePriceAxisWidgetImpl();
-		chart.model().priceScalesOptionsChanged().subscribe(this._recreatePriceAxisWidget.bind(this), this);
-		this.updatePriceAxisWidget();
+		this.updatePriceAxisWidgets();
 
 		const scrollOptions = this.chart().options().handleScroll;
 		this._mouseEventHandler = new MouseEventHandler(
@@ -143,10 +141,6 @@ export class PaneWidget implements IDestroyable {
 		return ensureNotNull(this._state);
 	}
 
-	public stateOrNull(): Pane | null {
-		return this._state;
-	}
-
 	public setState(pane: Pane | null): void {
 		if (this._state !== null) {
 			this._state.onDestroyed().unsubscribeAll(this);
@@ -158,7 +152,7 @@ export class PaneWidget implements IDestroyable {
 			this._state.onDestroyed().subscribe(PaneWidget.prototype._onStateDestroyed.bind(this), this, true);
 		}
 
-		this.updatePriceAxisWidget();
+		this.updatePriceAxisWidgets();
 	}
 
 	public chart(): ChartWidget {
@@ -169,11 +163,12 @@ export class PaneWidget implements IDestroyable {
 		return this._rowElement;
 	}
 
-	public updatePriceAxisWidget(): void {
+	public updatePriceAxisWidgets(): void {
 		if (this._state === null) {
 			return;
 		}
 
+		this._recreatePriceAxisWidgets();
 		if (this._model().serieses().length === 0) {
 			return;
 		}
@@ -291,7 +286,7 @@ export class PaneWidget implements IDestroyable {
 		this._tryExitTrackingMode();
 	}
 
-	// tslint:disable-next-line:cyclomatic-complexity
+	// eslint-disable-next-line complexity
 	public pressedMouseMoveEvent(event: TouchMouseEvent): void {
 		if (this._state === null) {
 			return;
@@ -379,7 +374,7 @@ export class PaneWidget implements IDestroyable {
 		this._longTap = true;
 
 		if (this._startTrackPoint === null && trackCrosshairOnlyAfterLongTap) {
-			const point = { x: event.localX as Coordinate, y: event.localY as Coordinate };
+			const point: Point = { x: event.localX as Coordinate, y: event.localY as Coordinate };
 			this._startTrackingMode(point, point);
 		}
 	}
@@ -570,10 +565,6 @@ export class PaneWidget implements IDestroyable {
 
 	private _drawWatermark(ctx: CanvasRenderingContext2D, pixelRatio: number): void {
 		const source = this._model().watermarkSource();
-		if (source === null) {
-			return;
-		}
-
 		this._drawSourceBackground(source, ctx, pixelRatio);
 		this._drawSource(source, ctx, pixelRatio);
 	}
@@ -637,7 +628,7 @@ export class PaneWidget implements IDestroyable {
 		}
 	}
 
-	private _hitTestPaneView(paneViews: ReadonlyArray<IPaneView>, x: Coordinate, y: Coordinate): HitTestPaneViewResult | null {
+	private _hitTestPaneView(paneViews: readonly IPaneView[], x: Coordinate, y: Coordinate): HitTestPaneViewResult | null {
 		for (const paneView of paneViews) {
 			const renderer = paneView.renderer(this._size.h, this._size.w);
 			if (renderer !== null && renderer.hitTest) {
@@ -654,12 +645,7 @@ export class PaneWidget implements IDestroyable {
 		return null;
 	}
 
-	private _recreatePriceAxisWidget(): void {
-		this._recreatePriceAxisWidgetImpl();
-		this._chart.adjustSize();
-	}
-
-	private _recreatePriceAxisWidgetImpl(): void {
+	private _recreatePriceAxisWidgets(): void {
 		if (this._state === null) {
 			return;
 		}

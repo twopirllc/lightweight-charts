@@ -1,7 +1,7 @@
 import { DeepPartial } from '../helpers/strict-type-checks';
 
 import { Coordinate } from '../model/coordinate';
-import { LogicalRange, Range } from '../model/time-data';
+import { Logical, LogicalRange, Range } from '../model/time-data';
 import { TimeScaleOptions } from '../model/time-scale';
 
 import { Time } from './data-consumer';
@@ -15,12 +15,14 @@ export type LogicalRangeChangeEventHandler = (logicalRange: LogicalRange | null)
 export interface ITimeScaleApi {
 	/**
 	 * Returns current scroll position of the chart
+	 *
 	 * @returns a distance from the right edge to the latest bar, measured in bars
 	 */
 	scrollPosition(): number;
 
 	/**
 	 * Scrolls the chart to the specified position
+	 *
 	 * @param position - target data position
 	 * @param animated - setting this to true makes the chart scrolling smooth and adds animation
 	 */
@@ -33,24 +35,28 @@ export interface ITimeScaleApi {
 
 	/**
 	 * Returns current visible time range of the chart
+	 *
 	 * @returns visible range or null if the chart has no data at all
 	 */
 	getVisibleRange(): TimeRange | null;
 
 	/**
 	 * Sets visible range of data
+	 *
 	 * @param range - target visible range of data
 	 */
 	setVisibleRange(range: TimeRange): void;
 
 	/**
 	 * Returns the currently visible logical range of data.
+	 *
 	 * @returns visible range or null if the chart has no data at all
 	 */
 	getVisibleLogicalRange(): LogicalRange | null;
 
 	/**
 	 * Sets visible logical range of data.
+	 *
 	 * @param range - target visible logical range of data.
 	 */
 	setVisibleLogicalRange(range: Range<number>): void;
@@ -67,7 +73,24 @@ export interface ITimeScaleApi {
 	fitContent(): void;
 
 	/**
+	 * Converts a logical index to local x coordinate.
+	 *
+	 * @param logical - logical index needs to be converted
+	 * @returns x coordinate of that time or `null` if the chart doesn't have data
+	 */
+	logicalToCoordinate(logical: Logical): Coordinate | null;
+
+	/**
+	 * Converts a coordinate to logical index.
+	 *
+	 * @param x - coordinate needs to be converted
+	 * @returns logical index that is located on that coordinate or `null` if the chart doesn't have data
+	 */
+	coordinateToLogical(x: number): Logical | null;
+
+	/**
 	 * Converts a time to local x coordinate.
+	 *
 	 * @param time - time needs to be converted
 	 * @returns x coordinate of that time or `null` if no time found on time scale
 	 */
@@ -75,6 +98,7 @@ export interface ITimeScaleApi {
 
 	/**
 	 * Converts a coordinate to time.
+	 *
 	 * @param x - coordinate needs to be converted
 	 * @returns time of a bar that is located on that coordinate or `null` if there are no bars found on that coordinate
 	 */
@@ -82,36 +106,42 @@ export interface ITimeScaleApi {
 
 	/**
 	 * Adds a subscription to visible range changes to receive notification about visible range of data changes
+	 *
 	 * @param handler - handler (function) to be called on changing visible data range
 	 */
 	subscribeVisibleTimeRangeChange(handler: TimeRangeChangeEventHandler): void;
 
 	/**
 	 * Removes a subscription to visible range changes
+	 *
 	 * @param handler - previously subscribed handler
 	 */
 	unsubscribeVisibleTimeRangeChange(handler: TimeRangeChangeEventHandler): void;
 
 	/**
 	 * Adds a subscription to visible index range changes to receive notifications about visible indexes of the data
+	 *
 	 * @param handler - handler (function) to be called when the visible indexes change
 	 */
 	subscribeVisibleLogicalRangeChange(handler: LogicalRangeChangeEventHandler): void;
 
 	/**
 	 * Removes a subscription to visible index range changes
+	 *
 	 * @param handler - previously subscribed handler
 	 */
 	unsubscribeVisibleLogicalRangeChange(handler: LogicalRangeChangeEventHandler): void;
 
 	/**
 	 * Applies new options to the time scale.
+	 *
 	 * @param options - any subset of options
 	 */
 	applyOptions(options: DeepPartial<TimeScaleOptions>): void;
 
 	/**
 	 * Returns current options
+	 *
 	 * @returns currently applied options
 	 */
 	options(): Readonly<TimeScaleOptions>;

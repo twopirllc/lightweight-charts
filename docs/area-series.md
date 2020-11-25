@@ -8,27 +8,27 @@ An area series has a crosshair marker - a round mark which is moving along the s
 
 ## How to create area series
 
-```javascript
+```js
 const areaSeries = chart.addAreaSeries();
 
 // set the data
 areaSeries.setData([
-    { time: "2018-12-22", value: 32.51 },
-    { time: "2018-12-23", value: 31.11 },
-    { time: "2018-12-24", value: 27.02 },
-    { time: "2018-12-25", value: 27.32 },
-    { time: "2018-12-26", value: 25.17 },
-    { time: "2018-12-27", value: 28.89 },
-    { time: "2018-12-28", value: 25.46 },
-    { time: "2018-12-29", value: 23.92 },
-    { time: "2018-12-30", value: 22.68 },
-    { time: "2018-12-31", value: 22.67 },
+    { time: '2018-12-22', value: 32.51 },
+    { time: '2018-12-23', value: 31.11 },
+    { time: '2018-12-24', value: 27.02 },
+    { time: '2018-12-25', value: 27.32 },
+    { time: '2018-12-26', value: 25.17 },
+    { time: '2018-12-27', value: 28.89 },
+    { time: '2018-12-28', value: 25.46 },
+    { time: '2018-12-29', value: 23.92 },
+    { time: '2018-12-30', value: 22.68 },
+    { time: '2018-12-31', value: 22.67 },
 ]);
 ```
 
 ## Data format
 
-Each area series item should have the following field:
+Each area series item should be a [whitespace](./whitespace-data.md) item or an object with the following fields:
 
 - `time` ([Time](./time.md)) - item time
 - `value` (`number`) - item value
@@ -53,12 +53,14 @@ An area series interface can be customized using the following set of options:
 |`lineWidth`|`number`|`3`|Line width in pixels|
 |`crosshairMarkerVisible`|`boolean`|`true`|If true, the crosshair marker is shown|
 |`crosshairMarkerRadius`|`number`|`4`|The radius of the crosshair marker in pixels|
+|`crosshairMarkerBorderColor`|`string`|`''`|The crosshair border color (an empty string fallbacks the color to series' color under the crosshair)|
+|`crosshairMarkerBackgroundColor`|`string`|`''`|The crosshair back color (an empty string fallbacks the color to series' color under the crosshair)|
 
 ### Examples
 
 - set initial options for area series:
 
-    ```javascript
+    ```js
     const areaSeries = chart.addAreaSeries({
         topColor: 'rgba(21, 146, 230, 0.4)',
         bottomColor: 'rgba(21, 146, 230, 0)',
@@ -67,12 +69,14 @@ An area series interface can be customized using the following set of options:
         lineWidth: 3,
         crosshairMarkerVisible: false,
         crosshairMarkerRadius: 3,
+        crosshairMarkerBorderColor: 'rgb(255, 255, 255, 1)',
+        crosshairMarkerBackgroundColor: 'rgb(34, 150, 243, 1)',
     });
     ```
 
 - change options after series is created:
 
-    ```javascript
+    ```js
     // for example, let's override line width and color only
     areaSeries.applyOptions({
         lineColor: 'rgba(255, 44, 128, 1)',

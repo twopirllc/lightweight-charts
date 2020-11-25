@@ -1,5 +1,4 @@
-import { generateTextColor } from '../../helpers/color';
-
+import { PriceScale } from '../../model/price-scale';
 import {
 	IPriceAxisViewRenderer,
 	IPriceAxisViewRendererConstructor,
@@ -22,6 +21,7 @@ export abstract class PriceAxisView implements IPriceAxisView {
 		text: '',
 		visible: false,
 		tickVisible: true,
+		moveTextToInvisibleTick: false,
 		borderColor: '',
 	};
 
@@ -29,6 +29,7 @@ export abstract class PriceAxisView implements IPriceAxisView {
 		text: '',
 		visible: false,
 		tickVisible: false,
+		moveTextToInvisibleTick: true,
 		borderColor: '',
 	};
 
@@ -43,14 +44,6 @@ export abstract class PriceAxisView implements IPriceAxisView {
 
 	public text(): string {
 		return this._axisRendererData.text;
-	}
-
-	public background(): string {
-		return this._commonRendererData.background;
-	}
-
-	public color(): string {
-		return generateTextColor(this.background());
 	}
 
 	public coordinate(): number {
@@ -87,13 +80,15 @@ export abstract class PriceAxisView implements IPriceAxisView {
 		return this._axisRendererData.visible;
 	}
 
-	public isPaneLabelVisible(): boolean {
+	public renderer(priceScale: PriceScale): IPriceAxisViewRenderer {
 		this._updateRendererDataIfNeeded();
-		return this._paneRendererData.visible;
-	}
 
-	public renderer(): IPriceAxisViewRenderer {
-		this._updateRendererDataIfNeeded();
+		// force update tickVisible state from price scale options
+		// because we don't have and we can't have price axis in other methods
+		// (like paneRenderer or any other who call _updateRendererDataIfNeeded)
+		this._axisRendererData.tickVisible = this._axisRendererData.tickVisible && priceScale.options().drawTicks;
+		this._paneRendererData.tickVisible = this._paneRendererData.tickVisible && priceScale.options().drawTicks;
+
 		this._axisRenderer.setData(this._axisRendererData, this._commonRendererData);
 		this._paneRenderer.setData(this._paneRendererData, this._commonRendererData);
 
@@ -116,8 +111,9 @@ export abstract class PriceAxisView implements IPriceAxisView {
 
 	private _updateRendererDataIfNeeded(): void {
 		if (this._invalidated) {
+			this._axisRendererData.tickVisible = true;
+			this._paneRendererData.tickVisible = false;
 			this._updateRendererData(this._axisRendererData, this._paneRendererData, this._commonRendererData);
-			this._invalidated = false;
 		}
 	}
 }

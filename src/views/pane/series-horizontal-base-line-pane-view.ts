@@ -4,6 +4,7 @@ import { Series } from '../../model/series';
 import { SeriesHorizontalLinePaneView } from './series-horizontal-line-pane-view';
 
 export class SeriesHorizontalBaseLinePaneView extends SeriesHorizontalLinePaneView {
+	// eslint-disable-next-line no-useless-constructor
 	public constructor(series: Series) {
 		super(series);
 	}
@@ -19,7 +20,7 @@ export class SeriesHorizontalBaseLinePaneView extends SeriesHorizontalLinePaneVi
 
 		const seriesOptions = this._series.options();
 
-		if (!seriesOptions.baseLineVisible) {
+		if (!seriesOptions.baseLineVisible || !seriesOptions.visible) {
 			return;
 		}
 

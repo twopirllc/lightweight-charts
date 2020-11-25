@@ -29,7 +29,7 @@ const enum CursorType {
 	NsResize,
 }
 
-type IPriceAxisViewArray = ReadonlyArray<IPriceAxisView>;
+type IPriceAxisViewArray = readonly IPriceAxisView[];
 
 export class PriceAxisWidget implements IDestroyable {
 	private readonly _pane: PaneWidget;
@@ -48,8 +48,6 @@ export class PriceAxisWidget implements IDestroyable {
 	private _updateTimeout: TimerId | null = null;
 	private _mouseEventHandler: MouseEventHandler;
 	private _mousedown: boolean = false;
-
-	private _isVisible: boolean = true;
 
 	private readonly _widthCache: TextWidthCache = new TextWidthCache(50);
 	private _tickMarksCache: LabelsImageCache = new LabelsImageCache(11, '#000');
@@ -117,8 +115,8 @@ export class PriceAxisWidget implements IDestroyable {
 
 		if (this._priceScale !== null) {
 			this._priceScale.onMarksChanged().unsubscribeAll(this);
-			this._priceScale.optionsChanged().unsubscribeAll(this);
 		}
+
 		this._priceScale = null;
 
 		if (this._updateTimeout !== null) {
@@ -173,7 +171,7 @@ export class PriceAxisWidget implements IDestroyable {
 	}
 
 	public optimalWidth(): number {
-		if (!this.isVisible() || this._priceScale === null) {
+		if (this._priceScale === null) {
 			return 0;
 		}
 
@@ -241,7 +239,6 @@ export class PriceAxisWidget implements IDestroyable {
 
 		if (this._priceScale !== null) {
 			this._priceScale.onMarksChanged().unsubscribeAll(this);
-			this._priceScale.optionsChanged().unsubscribeAll(this);
 		}
 
 		this._priceScale = priceScale;
@@ -252,29 +249,6 @@ export class PriceAxisWidget implements IDestroyable {
 		return this._priceScale;
 	}
 
-	public isVisible(): boolean {
-		return this._isVisible;
-	}
-
-	public setVisible(visible: boolean): void {
-		if (visible === this._isVisible) {
-			return;
-		}
-		if (visible) {
-			this._cell.style.display = 'table-cell';
-		} else {
-			this._cell.style.display = 'none';
-		}
-
-		this._isVisible = visible;
-	}
-
-	public setAutoScale(on: boolean): void {
-		const pane = this._pane.state();
-		const model = this._pane.chart().model();
-		model.setPriceAutoScale(pane, ensureNotNull(this.priceScale()), on);
-	}
-
 	public reset(): void {
 		const pane = this._pane.state();
 		const model = this._pane.chart().model();
@@ -282,7 +256,7 @@ export class PriceAxisWidget implements IDestroyable {
 	}
 
 	public paint(type: InvalidationLevel): void {
-		if (!this._isVisible || this._size === null) {
+		if (this._size === null) {
 			return;
 		}
 
@@ -309,12 +283,8 @@ export class PriceAxisWidget implements IDestroyable {
 		return this._canvasBinding.canvas;
 	}
 
-	public isLeft(): boolean {
-		return this._isLeft;
-	}
-
 	private _mouseDownEvent(e: TouchMouseEvent): void {
-		if (this._priceScale === null || this._priceScale.isEmpty() || !this._pane.chart().options().handleScale.axisPressedMouseMove) {
+		if (this._priceScale === null || this._priceScale.isEmpty() || !this._pane.chart().options().handleScale.axisPressedMouseMove.price) {
 			return;
 		}
 
@@ -325,7 +295,7 @@ export class PriceAxisWidget implements IDestroyable {
 	}
 
 	private _pressedMouseMoveEvent(e: TouchMouseEvent): void {
-		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove) {
+		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove.price) {
 			return;
 		}
 
@@ -336,7 +306,7 @@ export class PriceAxisWidget implements IDestroyable {
 	}
 
 	private _mouseDownOutsideEvent(): void {
-		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove) {
+		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove.price) {
 			return;
 		}
 
@@ -351,7 +321,7 @@ export class PriceAxisWidget implements IDestroyable {
 	}
 
 	private _mouseUpEvent(e: TouchMouseEvent): void {
-		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove) {
+		if (this._priceScale === null || !this._pane.chart().options().handleScale.axisPressedMouseMove.price) {
 			return;
 		}
 		const model = this._pane.chart().model();
@@ -372,7 +342,7 @@ export class PriceAxisWidget implements IDestroyable {
 		}
 
 		const model = this._pane.chart().model();
-		if (model.options().handleScale.axisPressedMouseMove && !this._priceScale.isPercentage() && !this._priceScale.isIndexedTo100()) {
+		if (model.options().handleScale.axisPressedMouseMove.price && !this._priceScale.isPercentage() && !this._priceScale.isIndexedTo100()) {
 			this._setCursor(CursorType.NsResize);
 		}
 	}
@@ -386,7 +356,7 @@ export class PriceAxisWidget implements IDestroyable {
 
 		const priceScale = (this._priceScale === null) ? undefined : this._priceScale;
 
-		const addViewsForSources = (sources: ReadonlyArray<IDataSource>) => {
+		const addViewsForSources = (sources: readonly IDataSource[]) => {
 			for (let i = 0; i < sources.length; ++i) {
 				const source = sources[i];
 				const views = source.priceAxisViews(this._pane.state(), priceScale);
@@ -449,7 +419,7 @@ export class PriceAxisWidget implements IDestroyable {
 		ctx.font = this.baseFont();
 		ctx.fillStyle = this.lineColor();
 		const rendererOptions = this.rendererOptions();
-		const drawTicks = this._priceScale.options().borderVisible;
+		const drawTicks = this._priceScale.options().borderVisible && this._priceScale.options().drawTicks;
 
 		const tickMarkLeftX = this._isLeft ?
 			Math.floor((this._size.w - rendererOptions.tickLength) * pixelRatio - rendererOptions.borderSize * pixelRatio) :
@@ -588,7 +558,7 @@ export class PriceAxisWidget implements IDestroyable {
 
 		views.forEach((view: IPriceAxisView) => {
 			if (view.isAxisLabelVisible()) {
-				const renderer = view.renderer();
+				const renderer = view.renderer(ensureNotNull(this._priceScale));
 				ctx.save();
 				renderer.draw(ctx, rendererOptions, this._widthCache, size.w, align, pixelRatio);
 				ctx.restore();
@@ -622,7 +592,7 @@ export class PriceAxisWidget implements IDestroyable {
 		views.forEach((arr: IPriceAxisViewArray) => {
 			arr.forEach((view: IPriceAxisView) => {
 				ctx.save();
-				view.renderer().draw(ctx, ro, this._widthCache, size.w, align, pixelRatio);
+				view.renderer(ensureNotNull(this._priceScale)).draw(ctx, ro, this._widthCache, size.w, align, pixelRatio);
 				ctx.restore();
 			});
 		});
@@ -672,10 +642,10 @@ export class PriceAxisWidget implements IDestroyable {
 		this._recreateTickMarksCache(this._rendererOptionsProvider.options());
 		const model = this._pane.chart().model();
 		model.lightUpdate();
-	}
+	};
 
 	private readonly _topCanvasConfiguredHandler = () => {
 		const model = this._pane.chart().model();
 		model.lightUpdate();
-	}
+	};
 }

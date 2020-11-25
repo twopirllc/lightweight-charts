@@ -7,7 +7,7 @@ import { clone, DeepPartial } from '../helpers/strict-type-checks';
 import { ChartModel, ChartOptions, OverlayPriceScaleOptions, VisiblePriceScaleOptions } from './chart-model';
 import { DefaultPriceScaleId, isDefaultPriceScale } from './default-price-scale';
 import { IPriceDataSource } from './iprice-data-source';
-import { PriceScale, PriceScaleState } from './price-scale';
+import { PriceScale, PriceScaleOptions, PriceScaleState } from './price-scale';
 import { sortSources } from './sort-sources';
 import { TimeScale } from './time-scale';
 
@@ -32,7 +32,7 @@ export class Pane implements IDestroyable {
 	private _height: number = 0;
 	private _width: number = 0;
 	private _stretchFactor: number = DEFAULT_STRETCH_FACTOR;
-	private _cachedOrderedSources: ReadonlyArray<IPriceDataSource> | null = null;
+	private _cachedOrderedSources: readonly IPriceDataSource[] | null = null;
 
 	private _destroyed: Delegate = new Delegate();
 
@@ -128,7 +128,7 @@ export class Pane implements IDestroyable {
 
 	public setWidth(width: number): void {
 		this._width = width;
-		this.updateAllViews();
+		this.updateAllSources();
 	}
 
 	public setHeight(height: number): void {
@@ -147,10 +147,10 @@ export class Pane implements IDestroyable {
 			}
 		});
 
-		this.updateAllViews();
+		this.updateAllSources();
 	}
 
-	public dataSources(): ReadonlyArray<IPriceDataSource> {
+	public dataSources(): readonly IPriceDataSource[] {
 		return this._dataSources;
 	}
 
@@ -227,7 +227,7 @@ export class Pane implements IDestroyable {
 		priceScale.scaleTo(x);
 
 		// TODO: be more smart and update only affected views
-		this.updateAllViews();
+		this.updateAllSources();
 	}
 
 	public endScalePrice(priceScale: PriceScale): void {
@@ -240,27 +240,14 @@ export class Pane implements IDestroyable {
 
 	public scrollPriceTo(priceScale: PriceScale, x: number): void {
 		priceScale.scrollTo(x);
-		this.updateAllViews();
+		this.updateAllSources();
 	}
 
 	public endScrollPrice(priceScale: PriceScale): void {
 		priceScale.endScroll();
 	}
 
-	public setPriceAutoScale(priceScale: PriceScale, autoScale: boolean): void {
-		priceScale.setMode({
-			autoScale: autoScale,
-		});
-
-		if (this._timeScale.isEmpty()) {
-			priceScale.setPriceRange(null);
-			return;
-		}
-
-		this.recalculatePriceScale(priceScale);
-	}
-
-	public updateAllViews(): void {
+	public updateAllSources(): void {
 		this._dataSources.forEach((source: IPriceDataSource) => {
 			source.updateAllViews();
 		});
@@ -298,7 +285,7 @@ export class Pane implements IDestroyable {
 		if (visibleBars !== null) {
 			priceScale.recalculatePriceRange(visibleBars);
 		}
-		this.updateAllViews();
+		this.updateAllSources();
 	}
 
 	public momentaryAutoScale(): void {
@@ -316,15 +303,11 @@ export class Pane implements IDestroyable {
 			}
 		});
 
-		this.updateAllViews();
+		this.updateAllSources();
 		this._model.lightUpdate();
 	}
 
-	public isEmpty(): boolean {
-		return this._dataSources.length === 0;
-	}
-
-	public orderedSources(): ReadonlyArray<IPriceDataSource> {
+	public orderedSources(): readonly IPriceDataSource[] {
 		if (this._cachedOrderedSources === null) {
 			this._cachedOrderedSources = sortSources(this._dataSources);
 		}
@@ -409,7 +392,7 @@ export class Pane implements IDestroyable {
 	}
 
 	private _createPriceScale(id: string, options: OverlayPriceScaleOptions | VisiblePriceScaleOptions): PriceScale {
-		const actualOptions = { visible: true, autoScale: true, ...clone(options) };
+		const actualOptions: PriceScaleOptions = { visible: true, autoScale: true, ...clone(options) };
 		const priceScale = new PriceScale(
 			id,
 			actualOptions,

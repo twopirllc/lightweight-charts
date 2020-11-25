@@ -1,3 +1,5 @@
+import { isRunningOnClientSide } from '../../helpers/is-running-on-client-side';
+
 import { ChartOptionsInternal } from '../../model/chart-model';
 
 import { crosshairOptionsDefaults } from './crosshair-options-defaults';
@@ -27,7 +29,7 @@ export const chartOptionsDefaults: ChartOptionsInternal = {
 	timeScale: timeScaleOptionsDefaults,
 	watermark: watermarkOptionsDefaults,
 	localization: {
-		locale: navigator.language,
+		locale: isRunningOnClientSide ? navigator.language : '',
 		dateFormat: 'dd MMM \'yy',
 	},
 	handleScroll: {
@@ -37,7 +39,10 @@ export const chartOptionsDefaults: ChartOptionsInternal = {
 		vertTouchDrag: true,
 	},
 	handleScale: {
-		axisPressedMouseMove: true,
+		axisPressedMouseMove: {
+			time: true,
+			price: true,
+		},
 		axisDoubleClickReset: true,
 		mouseWheel: true,
 		pinch: true,

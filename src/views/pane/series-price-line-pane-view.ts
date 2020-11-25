@@ -4,6 +4,7 @@ import { PriceLineSource } from '../../model/series-options';
 import { SeriesHorizontalLinePaneView } from './series-horizontal-line-pane-view';
 
 export class SeriesPriceLinePaneView extends SeriesHorizontalLinePaneView {
+	// eslint-disable-next-line no-useless-constructor
 	public constructor(series: Series) {
 		super(series);
 	}
@@ -13,11 +14,11 @@ export class SeriesPriceLinePaneView extends SeriesHorizontalLinePaneView {
 		data.visible = false;
 
 		const seriesOptions = this._series.options();
-		if (!seriesOptions.priceLineVisible) {
+		if (!seriesOptions.priceLineVisible || !seriesOptions.visible) {
 			return;
 		}
 
-		const lastValueData = this._series.lastValueData(undefined, seriesOptions.priceLineSource === PriceLineSource.LastBar);
+		const lastValueData = this._series.lastValueData(seriesOptions.priceLineSource === PriceLineSource.LastBar);
 		if (lastValueData.noData) {
 			return;
 		}

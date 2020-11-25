@@ -96,6 +96,8 @@ export interface PriceScaleOptions {
 	entireTextOnly: boolean;
 	/** Indicates if this price scale visible. Could not be applied to overlay price scale */
 	visible: boolean;
+	/** True value add a small horizontal ticks on price axis labels */
+	drawTicks: boolean;
 }
 
 interface RangeCache {
@@ -118,11 +120,9 @@ export class PriceScale {
 
 	private _height: number = 0;
 	private _internalHeightCache: number | null = null;
-	private _internalHeightChanged: Delegate = new Delegate();
 
 	private _priceRange: PriceRangeImpl | null = null;
 	private _priceRangeSnapshot: PriceRangeImpl | null = null;
-	private _priceRangeChanged: Delegate<PriceRangeImpl | null, PriceRangeImpl | null> = new Delegate();
 	private _invalidatedForRange: RangeCache = { isValid: false, visibleBars: null };
 
 	private _marginAbove: number = 0;
@@ -141,7 +141,6 @@ export class PriceScale {
 	private _scaleStartPoint: number | null = null;
 	private _scrollStartPoint: number | null = null;
 	private _formatter: IFormatter = defaultPriceFormatter;
-	private readonly _optionsChanged: Delegate = new Delegate();
 
 	public constructor(id: string, options: PriceScaleOptions, layoutOptions: LayoutOptions, localizationOptions: LocalizationOptions) {
 		this._id = id;
@@ -167,8 +166,6 @@ export class PriceScale {
 			this.setMode({ mode: options.mode });
 		}
 
-		this._optionsChanged.fire();
-
 		if (options.scaleMargins !== undefined) {
 			const top = ensureDefined(options.scaleMargins.top);
 			const bottom = ensureDefined(options.scaleMargins.bottom);
@@ -188,10 +185,6 @@ export class PriceScale {
 			this._invalidateInternalHeightCache();
 			this._marksCache = null;
 		}
-	}
-
-	public optionsChanged(): ISubscription {
-		return this._optionsChanged;
 	}
 
 	public isAutoScale(): boolean {
@@ -218,7 +211,7 @@ export class PriceScale {
 		};
 	}
 
-	// tslint:disable-next-line:cyclomatic-complexity
+	// eslint-disable-next-line complexity
 	public setMode(newMode: Partial<PriceScaleState>): void {
 		const oldMode = this.mode();
 		let priceRange: PriceRangeImpl | null = null;
@@ -307,20 +300,12 @@ export class PriceScale {
 		return res;
 	}
 
-	public internalHeightChanged(): ISubscription {
-		return this._internalHeightChanged;
-	}
-
 	public priceRange(): PriceRangeImpl | null {
 		this._makeSureItIsValid();
 		return this._priceRange;
 	}
 
-	public priceRangeChanged(): ISubscription<PriceRangeImpl | null, PriceRangeImpl | null> {
-		return this._priceRangeChanged;
-	}
-
-	public setPriceRange(newPriceRange: PriceRangeImpl | null, isForceSetValue?: boolean, onlyPriceScaleUpdate?: boolean): void {
+	public setPriceRange(newPriceRange: PriceRangeImpl | null, isForceSetValue?: boolean): void {
 		const oldPriceRange = this._priceRange;
 
 		if (!isForceSetValue &&
@@ -331,10 +316,6 @@ export class PriceScale {
 
 		this._marksCache = null;
 		this._priceRange = newPriceRange;
-
-		if (!onlyPriceScaleUpdate) {
-			this._priceRangeChanged.fire(oldPriceRange, newPriceRange);
-		}
 	}
 
 	public isEmpty(): boolean {
@@ -453,11 +434,11 @@ export class PriceScale {
 		return value as BarPrice;
 	}
 
-	public dataSources(): ReadonlyArray<IPriceDataSource> {
+	public dataSources(): readonly IPriceDataSource[] {
 		return this._dataSources;
 	}
 
-	public orderedSources(): ReadonlyArray<IPriceDataSource> {
+	public orderedSources(): readonly IPriceDataSource[] {
 		if (this._cachedOrderedSources) {
 			return this._cachedOrderedSources;
 		}
@@ -495,10 +476,13 @@ export class PriceScale {
 
 		this._dataSources.splice(index, 1);
 
-		if (this.isEmpty()) {
+		if (this._dataSources.length === 0) {
 			this.setMode({
 				autoScale: true,
 			});
+
+			// if no sources on price scale let's clear price range cache as well as enabling auto scale
+			this.setPriceRange(null);
 		}
 
 		this.updateFormatter();
@@ -690,7 +674,7 @@ export class PriceScale {
 		return percentageFormatter.format(price);
 	}
 
-	public sourcesForAutoScale(): ReadonlyArray<IPriceDataSource> {
+	public sourcesForAutoScale(): readonly IPriceDataSource[] {
 		return this._dataSources;
 	}
 
@@ -769,7 +753,6 @@ export class PriceScale {
 
 	private _invalidateInternalHeightCache(): void {
 		this._internalHeightCache = null;
-		this._internalHeightChanged.fire();
 	}
 
 	private _logicalToCoordinate(logical: number, baseValue: number): Coordinate {
@@ -804,7 +787,7 @@ export class PriceScale {
 		this._markBuilder.rebuildTickMarks();
 	}
 
-	// tslint:disable-next-line:cyclomatic-complexity
+	// eslint-disable-next-line complexity
 	private _recalculatePriceRangeImpl(): void {
 		const visibleBars = this._invalidatedForRange.visibleBars;
 		if (visibleBars === null) {

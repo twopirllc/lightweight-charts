@@ -1,6 +1,6 @@
 const terser = require('rollup-plugin-terser').terser;
-const nodeResolve = require('rollup-plugin-node-resolve');
-const replace = require('rollup-plugin-replace');
+const nodeResolve = require('@rollup/plugin-node-resolve').default;
+const replace = require('@rollup/plugin-replace');
 const packageJson = require('./package.json');
 
 function getDevBuildMetadata() {
@@ -29,7 +29,7 @@ function getConfig(inputFile, type, isProd) {
 /*!
  * @license
  * TradingView Lightweight Charts v${currentVersion}
- * Copyright (c) 2019 TradingView, Inc.
+ * Copyright (c) 2020 TradingView, Inc.
  * Licensed under Apache License 2.0 https://www.apache.org/licenses/LICENSE-2.0
  */`.trim(),
 		},
@@ -45,6 +45,7 @@ function getConfig(inputFile, type, isProd) {
 			isProd && terser({
 				output: {
 					comments: /@license/,
+					// eslint-disable-next-line camelcase
 					inline_script: true,
 				},
 				mangle: {

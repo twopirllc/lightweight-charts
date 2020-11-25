@@ -7,13 +7,12 @@ aliases:
   - &restore-node-modules-cache
       name: Restore node_modules cache
       keys:
-        - &cache-key v1-dependencies-{{ checksum "package.json" }}-{{ checksum "tests/e2e/package.json" }}
+        - &cache-key v1-dependencies-{{ checksum "package.json" }}
 
   - &save-node-modules-cache
       name: Save node_modules cache
       paths:
         - node_modules
-        - tests/e2e/node_modules
       key: *cache-key
 
   - &default-filters
@@ -32,11 +31,11 @@ aliases:
 executors:
   node-latest-executor:
     docker:
-      - image: circleci/node:10
+      - image: circleci/node:12
 
   node-browsers-latest-executor:
     docker:
-      - image: circleci/node:10-browsers
+      - image: circleci/node:12-browsers
 
 
 commands:
@@ -51,6 +50,9 @@ commands:
     parameters:
       devicePixelRatio:
         type: string
+      productionBuild:
+        type: boolean
+        default: false
     steps:
       - checkout-with-deps
       - run:
@@ -60,6 +62,7 @@ commands:
             echo 'export CMP_OUT_DIR="./graphics-cmp-data"' >> $BASH_ENV
             echo 'export TESTS_REPORT_FILE="test-results/graphics/results.xml"' >> $BASH_ENV
             echo 'export DEVICE_PIXEL_RATIO=<< parameters.devicePixelRatio >>' >> $BASH_ENV
+            echo 'export PRODUCTION_BUILD=<< parameters.productionBuild >>' >> $BASH_ENV
       - run: scripts/run-graphics-tests.sh
       - store_test_results:
           path: test-results/
@@ -102,17 +105,17 @@ jobs:
       - checkout
       - run: scripts/trailing-newlines.sh
 
-  eslint:
+  lint-js:
     executor: node-latest-executor
     steps:
       - checkout-with-deps
-      - run: npm run lint:eslint
+      - run: npm run lint:js
 
-  tslint:
+  lint-ts:
     executor: node-latest-executor
     steps:
       - checkout-with-deps
-      - run: npm run lint:tslint
+      - run: npm run lint:ts
 
   markdown:
     executor: node-latest-executor
@@ -158,6 +161,13 @@ jobs:
       - run-graphics-tests:
           devicePixelRatio: "2.0"
 
+  graphics-tests-dpr2_0-prod:
+    executor: node-browsers-latest-executor
+    steps:
+      - run-graphics-tests:
+          devicePixelRatio: "2.0"
+          productionBuild: true
+
 
   memleaks-tests:
     executor: node-browsers-latest-executor
@@ -172,13 +182,30 @@ jobs:
       - store_test_results:
           path: test-results/
 
-  codechecks:
+  coverage:
+    executor: node-browsers-latest-executor
+    environment:
+      NO_SANDBOX: "true"
+      TESTS_REPORT_FILE: "test-results/coverage/results.xml"
+    steps:
+      - checkout-with-deps
+      - attach_workspace:
+          at: ./
+      - run: scripts/run-coverage-tests.sh
+      - store_test_results:
+          path: test-results/
+
+  size-limit:
     executor: node-latest-executor
     steps:
       - checkout-with-deps
       - attach_workspace:
           at: ./
-      - run: npm run codechecks
+      - run:
+          name: "Comparing sizes with merge-base"
+          command: node scripts/compare-size-with-merge-base.js
+      - run: npm run size-limit
+
 
 workflows:
   version: 2
@@ -196,11 +223,11 @@ workflows:
           filters: *default-filters
           requires:
             - install-deps
-      - eslint:
+      - lint-js:
           filters: *default-filters
           requires:
             - install-deps
-      - tslint:
+      - lint-ts:
           filters: *default-filters
           requires:
             - install-deps
@@ -209,7 +236,7 @@ workflows:
           requires:
             - install-deps
 
-      - codechecks:
+      - size-limit:
           filters: *default-filters
           requires:
             - build
@@ -233,7 +260,15 @@ workflows:
           filters: *merge-based-filters
           requires:
             - build
+      - graphics-tests-dpr2_0-prod:
+          filters: *merge-based-filters
+          requires:
+            - build
       - memleaks-tests:
+          filters: *default-filters
+          requires:
+            - build
+      - coverage:
           filters: *default-filters
           requires:
             - build

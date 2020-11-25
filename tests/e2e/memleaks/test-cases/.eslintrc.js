@@ -1,11 +1,12 @@
-// eslint-disable-next-line no-undef
+/* eslint-env node */
+
 module.exports = {
 	env: {
 		browser: true,
 		node: false,
 	},
 	rules: {
-		'no-var': 'off',
+		'no-unused-vars': ['error', { varsIgnorePattern: '^runTestCase$', args: 'none' }],
 	},
 	globals: {
 		LightweightCharts: false,

@@ -1,9 +1,8 @@
-// eslint-disable-next-line no-unused-vars
 function runTestCase(container) {
 	const chart = LightweightCharts.createChart(container, {
 		width: 600,
 		height: 300,
-		priceScale: {
+		rightPriceScale: {
 			entireTextOnly: true,
 		},
 		timeScale: {
@@ -23,7 +22,6 @@ function runTestCase(container) {
 		{ time: 1564617960, value: 28.89 },
 		{ time: 1564618020, value: 25.46 },
 		{ time: 1564618080, value: 23.92 },
-		{ time: 1564618140, value: 22.68 },
 		{ time: 1564618140, value: 22.68 },
 		{ time: 1564618200, value: 22.67 },
 		{ time: 1564618202, value: 22.67 },

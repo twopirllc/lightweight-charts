@@ -62,6 +62,8 @@ export interface LineStyleOptions {
 	lineType: LineType;
 	crosshairMarkerVisible: boolean;
 	crosshairMarkerRadius: number;
+	crosshairMarkerBorderColor: string;
+	crosshairMarkerBackgroundColor: string;
 }
 
 export interface AreaStyleOptions {
@@ -73,6 +75,8 @@ export interface AreaStyleOptions {
 	lineType: LineType;
 	crosshairMarkerVisible: boolean;
 	crosshairMarkerRadius: number;
+	crosshairMarkerBorderColor: string;
+	crosshairMarkerBackgroundColor: string;
 }
 
 export interface HistogramStyleOptions {
@@ -83,6 +87,7 @@ export interface HistogramStyleOptions {
 /**
  * Structure describing series values formatting
  * Fields precision and minMove allow wide customization of formatting
+ *
  * @example
  * minMove = 0.01 , precision is not specified. Prices will change like 1.13, 1.14, 1.15 etc.
  * minMove = 0.01 , precision = 3. Prices will change like 1.130, 1.140, 1.150 etc.
@@ -91,7 +96,7 @@ export interface HistogramStyleOptions {
 
 export interface PriceFormatBuiltIn {
 	/**
-	 *  Enum of possible modes of price formatting
+	 * Enum of possible modes of price formatting
 	 * 'price' is the most common choice; it allows customization of precision and rounding of prices
 	 * 'volume' uses abbreviation for formatting prices like '1.2K' or '12.67M'
 	 * 'percent' uses '%' sign at the end of prices.
@@ -182,7 +187,8 @@ export interface SeriesOptionsCommon {
 	 * @internal
 	 */
 	seriesLastValueMode?: PriceAxisLastValueMode;
-
+	/** Visibility of series. */
+	visible: boolean;
 	/** Visibility of the price line. Price line is a horizontal line indicating the last price of the series */
 	priceLineVisible: boolean;
 	/** Enum of possible modes of priceLine source */

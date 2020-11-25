@@ -32,8 +32,8 @@ interface Offsets {
 	belowBar: number;
 }
 
+// eslint-disable-next-line max-params
 function fillSizeAndY(
-	// tslint:disable-next-line:max-params
 	rendererItem: SeriesMarkerRendererDataItem,
 	marker: SeriesMarker<TimePointIndex>,
 	seriesData: BarPrices | BarPrice,
@@ -50,7 +50,7 @@ function fillSizeAndY(
 	const sizeMultiplier = isNumber(marker.size) ? Math.max(marker.size, 0) : 1;
 	const shapeSize = calculateShapeHeight(timeScale.barSpacing()) * sizeMultiplier;
 	const halfSize = shapeSize / 2;
-	rendererItem.size = shapeSize as Coordinate;
+	rendererItem.size = shapeSize;
 
 	switch (marker.position) {
 		case 'inBar': {
@@ -113,7 +113,11 @@ export class SeriesMarkersPaneView implements IUpdatablePaneView {
 		}
 	}
 
-	public renderer(height: number, width: number, addAnchors?: boolean): IPaneRenderer {
+	public renderer(height: number, width: number, addAnchors?: boolean): IPaneRenderer | null {
+		if (!this._series.options().visible) {
+			return null;
+		}
+
 		if (this._invalidated) {
 			this._makeValid();
 		}
@@ -154,7 +158,7 @@ export class SeriesMarkersPaneView implements IUpdatablePaneView {
 				time: marker.time,
 				x: 0 as Coordinate,
 				y: 0 as Coordinate,
-				size: 0 as Coordinate,
+				size: 0,
 				shape: marker.shape,
 				color: marker.color,
 				internalId: marker.internalId,
@@ -200,7 +204,6 @@ export class SeriesMarkersPaneView implements IUpdatablePaneView {
 			if (marker.text !== undefined && marker.text.length > 0) {
 				rendererItem.text = {
 					content: marker.text,
-					x: rendererItem.x,
 					y: 0 as Coordinate,
 					width: 0,
 					height: 0,

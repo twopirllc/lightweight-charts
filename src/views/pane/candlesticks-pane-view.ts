@@ -1,7 +1,5 @@
-import { ChartModel } from '../../model/chart-model';
-import { Series } from '../../model/series';
 import { SeriesBarColorer } from '../../model/series-bar-colorer';
-import { Bar } from '../../model/series-data';
+import { SeriesPlotRow } from '../../model/series-data';
 import { TimePointIndex } from '../../model/time-data';
 import {
 	CandlestickItem,
@@ -15,14 +13,13 @@ import { BarsPaneViewBase } from './bars-pane-view-base';
 export class SeriesCandlesticksPaneView extends BarsPaneViewBase<'Candlestick', CandlestickItem> {
 	private readonly _renderer: PaneRendererCandlesticks = new PaneRendererCandlesticks();
 
-	public constructor(series: Series<'Candlestick'>, model: ChartModel) {
-		super(series, model);
-	}
-
-	public renderer(height: number, width: number): IPaneRenderer {
-		this._makeValid();
-
+	public renderer(height: number, width: number): IPaneRenderer | null {
 		const candlestickStyleProps = this._series.options();
+		if (!candlestickStyleProps.visible) {
+			return null;
+		}
+
+		this._makeValid();
 		const data: PaneRendererCandlesticksData = {
 			bars: this._items,
 			barSpacing: this._model.timeScale().barSpacing(),
@@ -36,7 +33,7 @@ export class SeriesCandlesticksPaneView extends BarsPaneViewBase<'Candlestick', 
 		return this._renderer;
 	}
 
-	protected _createRawItem(time: TimePointIndex, bar: Bar, colorer: SeriesBarColorer): CandlestickItem {
+	protected _createRawItem(time: TimePointIndex, bar: SeriesPlotRow, colorer: SeriesBarColorer): CandlestickItem {
 		const style = colorer.barStyle(time);
 		return {
 			...this._createDefaultItem(time, bar, colorer),

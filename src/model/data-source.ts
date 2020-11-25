@@ -1,6 +1,6 @@
 import { IPaneView } from '../views/pane/ipane-view';
 import { IPriceAxisView } from '../views/price-axis/iprice-axis-view';
-import { TimeAxisView } from '../views/time-axis/time-axis-view';
+import { ITimeAxisView } from '../views/time-axis/itime-axis-view';
 
 import { IDataSource } from './idata-source';
 import { Pane } from './pane';
@@ -27,15 +27,15 @@ export abstract class DataSource implements IDataSource {
 		this._priceScale = priceScale;
 	}
 
-	public priceAxisViews(pane?: Pane, priceScale?: PriceScale): ReadonlyArray<IPriceAxisView> {
+	public priceAxisViews(pane?: Pane, priceScale?: PriceScale): readonly IPriceAxisView[] {
 		return [];
 	}
 
-	public paneViews(pane?: Pane): ReadonlyArray<IPaneView> {
+	public paneViews(pane?: Pane): readonly IPaneView[] {
 		return [];
 	}
 
-	public timeAxisViews(): ReadonlyArray<TimeAxisView> {
+	public timeAxisViews(): readonly ITimeAxisView[] {
 		return [];
 	}
 

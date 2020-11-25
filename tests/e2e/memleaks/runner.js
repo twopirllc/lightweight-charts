@@ -12,12 +12,12 @@ const mochaConfig = require('../../../.mocharc.js');
 // override tsconfig
 process.env.TS_NODE_PROJECT = path.resolve(__dirname, '../tsconfig.json');
 
-mochaConfig.require.forEach((module) => {
+mochaConfig.require.forEach(module => {
 	require(module);
 });
 
 if (process.argv.length !== 3) {
-	console.log('Usage: runner PATH_TO_GOLDEN_STANDALONE_MODULE PATH_TO_TEST_STANDALONE_MODULE');
+	console.log('Usage: runner PATH_TO_TEST_STANDALONE_MODULE');
 	process.exit(1);
 }
 
